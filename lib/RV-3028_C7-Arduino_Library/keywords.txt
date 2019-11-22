@@ -1,0 +1,74 @@
+########################################################
+# Syntax Coloring Map for RV-3028-C7 Library #
+########################################################
+# Class
+###################################################################
+
+RV3028	KEYWORD1
+
+###################################################################
+# Methods and Functions
+###################################################################
+
+begin	KEYWORD2
+setTime	KEYWORD2
+setSeconds	KEYWORD2
+setMinutes	KEYWORD2
+setHours	KEYWORD2
+setWeekday	KEYWORD2
+setDate	KEYWORD2
+setMonth	KEYWORD2
+setYear	KEYWORD2
+setToCompilerTime	KEYWORD2
+
+updateTime	KEYWORD2
+
+stringDateUSA	KEYWORD2
+stringDate	KEYWORD2
+stringTime	KEYWORD2
+stringTimeStamp	KEYWORD2
+
+getSeconds	KEYWORD2
+getMinutes	KEYWORD2
+getHours	KEYWORD2
+getWeekday	KEYWORD2
+getDate	KEYWORD2
+getMonth	KEYWORD2
+getYear	KEYWORD2
+
+is12Hour	KEYWORD2
+isPM	KEYWORD2
+set12Hour	KEYWORD2
+set24Hour	KEYWORD2
+
+setUNIX	KEYWORD2
+getUNIX	KEYWORD2
+
+enableAlarmInterrupt	KEYWORD2
+disableAlarmInterrupt	KEYWORD2
+readAlarmInterruptFlag	KEYWORD2
+
+enableTrickleCharge	KEYWORD2
+disableTrickleCharge	KEYWORD2
+setBackupSwitchoverMode	KEYWORD2
+
+status	KEYWORD2
+clearInterrupts	KEYWORD2
+
+
+BCDtoDEC	KEYWORD2
+DECtoBCD	KEYWORD2
+
+readRegister	KEYWORD2
+writeRegister	KEYWORD2
+readMultipleRegisters	KEYWORD2
+writeMultipleRegisters	KEYWORD2
+
+writeConfigEEPROM_RAMmirror	KEYWORD2
+readConfigEEPROM_RAMmirror	KEYWORD2
+waitforEEPROM	KEYWORD2
+
+###################################################################
+# Constants
+###################################################################
+
