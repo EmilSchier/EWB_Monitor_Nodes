@@ -36,6 +36,8 @@ void getRoutingTable(int row_addr,RHMesh *ptrManager);
 //                                routing table
 void saveRoutingTable(int row_addr, RHMesh *ptrManager);
 
+// deletes the saved routing table from EEPROM
+void deleteRoutingTableEEPROM(int row_addr);
 
 
 #endif // GENERALP_FUNCTION
