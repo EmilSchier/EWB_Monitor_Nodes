@@ -3,14 +3,25 @@
 
 // Includes
 #include <Arduino.h>
+#include <EEPROM.h>
 #include <RHMesh.h>
 #include <RH_RF95.h>
-#include <SPI.h>
-#include <EEPROM.h>
 
 // Defines
 #define routingTableFirstAddr  0
 
+// Define each node address
+#define NODE1_ADDRESS 1
+#define NODE2_ADDRESS 2
+#define NODE3_ADDRESS 3
+#define NODE4_ADDRESS 4
+
+//#define RH_MESH_MAX_MESSAGE_LEN 50
+#define SENSORCH0 0
+#define SENSORCH1 1
+#define PAYLOADMAXSIZE 51
+#define DYNJSONBUFFERSIZE 4096
+#define STATJSONBUFFERSIZE 512  // use https://arduinojson.org/v5/assistant/ to calculate the proper size
 
 
 //Functions 
