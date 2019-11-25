@@ -1,5 +1,5 @@
-#include <General_Purpose_Functions.h>
-#include <RV-3028-C7.h>
+#include "General_Purpose_Functions.h"
+#include "RV-3028-C7.h"
 #include <Wire.h>
 #include <CayenneLPP.h>
 #include <SPI.h>
@@ -12,6 +12,8 @@ RHMesh manager(driver, NODE1_ADDRESS);
 
 // Cayenne Low Power Protocol
 CayenneLPP lpp(PAYLOADMAXSIZE);
+StaticJsonDocument<STATJSONBUFFERSIZE> jsonBuffer;   // Saved on stack. Recommended not to use if reserved memory>1kb. 
+JsonArray root = jsonBuffer.to<JsonArray>();
 
 RV3028 rtc;
 
@@ -109,7 +111,7 @@ void loop() {
   if (manager.sendtoWait(lpp.getBuffer(), lpp.getSize(), NODE3_ADDRESS) == RH_ROUTER_ERROR_NONE)
   {
     // It has been reliably delivered to the next node.
-    // Now wait for a reply from the ultimate server
+    // Now wait for a reply from the other node
     uint8_t len = sizeof(buf);
     uint8_t from;    
     if (manager.recvfromAckTimeout(buf, &len, 3000, &from))
@@ -126,6 +128,28 @@ void loop() {
   }
   else
      Serial.println("sendtoWait failed. Are the intermediate nodes running?");
+
   saveRoutingTable(routingTableFirstAddr,&manager);
-  while(1);
+
+  // Listen for new messages
+  while(true){
+    uint8_t len = sizeof(buf);
+    uint8_t from;
+    if (manager.recvfromAck(buf, &len, &from))
+    {
+      Serial.print("got request from : 0x");
+      Serial.print(from, HEX);
+      Serial.print(": ");
+      Serial.println((char*)buf);
+
+      lpp.reset;
+      lpp.decode(buf,len,root);
+      serializeJsonPretty(root,Serial);
+      Serial.println();
+
+      // Send a reply back to the originator client
+        // if (manager.sendtoWait(data, sizeof(data), from) != RH_ROUTER_ERROR_NONE)
+        //   Serial.println("sendtoWait failed");
+    }    
+  }
 }

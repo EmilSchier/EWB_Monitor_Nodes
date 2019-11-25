@@ -4,8 +4,8 @@
 // Includes
 #include <Arduino.h>
 #include <EEPROM.h>
-#include <RHMesh.h>
-#include <RH_RF95.h>
+#include "RHMesh.h"
+#include "RH_RF95.h"
 
 // Defines
 #define routingTableFirstAddr  0
