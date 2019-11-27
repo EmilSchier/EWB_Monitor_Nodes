@@ -5,7 +5,7 @@
 #include <SPI.h>
 
 //RH_RF95/RFM96 driver;
-RH_RF95 driver(53,2);
+RH_RF95 driver(53,2);   // pins for Mega
 
 // Class to manage message delivery and receipt, using the driver declared above
 RHMesh manager(driver, NODE1_ADDRESS);
@@ -142,7 +142,6 @@ void loop() {
       Serial.print(": ");
       Serial.println((char*)buf);
 
-      lpp.reset;
       lpp.decode(buf,len,root);
       serializeJsonPretty(root,Serial);
       Serial.println();
@@ -150,6 +149,6 @@ void loop() {
       // Send a reply back to the originator client
         // if (manager.sendtoWait(data, sizeof(data), from) != RH_ROUTER_ERROR_NONE)
         //   Serial.println("sendtoWait failed");
-    }    
+    }
   }
 }
