@@ -534,13 +534,18 @@ bool RV3028::setBackupSwitchoverMode(uint8_t val)
 }
 
 /****************************
- * Jeg har implementeret følgende 2 funktioner. (Emil Christiansen)
+ * Sets the time and settings of the countdown timer.
+ * takes the time in one of three units and determines the optimal settings
+ * the three units are:
+ * UNIT_MINUTE    =   Minutes
+ * UNIT_SECOND    =   Seconds
+ * UNIT_M_SECOND  =   milliseconds
  * 
- * kun implementeret til timerværdiger mellem 1ms og 4095 minutter
- * 
+ * enableCountdownTimer(); needs to be called after this funtion to start the timer
  ****************************/ 
 bool RV3028::setCountdownTimer(uint16_t time, time_units unit, bool repeatmode)
 {
+	bool succesState = true;
 	uint16_t timerVal;
 	uint8_t clockFreq;
 	switch (unit)
@@ -575,18 +580,26 @@ bool RV3028::setCountdownTimer(uint16_t time, time_units unit, bool repeatmode)
 	clearInterrupts();
 	if (repeatmode)
 	{	
-		value |= (1 << CTRL1_TRPT); //Set the interrupt enable bit
+		value |= (1 << CTRL1_TRPT); //set the repeat mode bit
 	}else
 	{	
-		value &= ~ (1 << CTRL1_TRPT); //Set the interrupt enable bit
+		value &= ~ (1 << CTRL1_TRPT); //clear the repeat mode bit
 	}
 	value |=clockFreq;
 	
-	if (!writeRegister(RV3028_CTRL1, value) || !writeRegister(RV3028_TIMERVAL_0,(uint8_t)(timerVal)) || !writeRegister(RV3028_TIMERVAL_0,(uint8_t)(timerVal >> 8)))
+	if (!writeRegister(RV3028_CTRL1, value) )
 	{
-		return false;
+		succesState = false;
 	}
-	return true;
+	if (!writeRegister(RV3028_TIMERVAL_0,(uint8_t)(timerVal)))
+	{
+		succesState = false;
+	}
+	if (!writeRegister(RV3028_TIMERVAL_1,(uint8_t)(timerVal >> 8)))
+	{
+		succesState = false;
+	}
+	return succesState;
 }
 
 void RV3028::enableCountdownTimer()
