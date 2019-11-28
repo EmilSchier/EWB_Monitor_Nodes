@@ -83,6 +83,7 @@ void setup() {
   rtc.enableAlarmInterrupt(ALARM_MINUTES, ALARM_HOURS, ALARM_HOURS, ALARM_NOT_DATES, ALARM_MODE);
   rtc.setCountdownTimer(TIMER_TIME, TIMER_UNIT, TIMER_REPEAT);
   //rtc.enableCountdownTimer(); // uncomment to enable the countdown timer
+  rtc.disableCountdownTimer();
   rtc.clearInterrupts();
   attachInterrupt(digitalPinToInterrupt(RTC_INTERRUPT_PIN), rtcISR, FALLING);
   
