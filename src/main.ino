@@ -3,6 +3,7 @@
 #include <Wire.h>
 #include <CayenneLPP.h>
 #include <SPI.h>
+#include <LowPower.h>
 
 //RH_RF95/RFM96 driver;
 RH_RF95 driver(53,2);   // pins for Mega
@@ -48,7 +49,7 @@ If you want to set a weekday alarm (setWeekdayAlarm_not_Date = true), set 'date_
 #define ALARM_NOT_DATES   false
 #define ALARM_MODE        7 //disabled 
 
-#define TIMER_TIME        0 // the time, 0 = dissabled
+#define TIMER_TIME        10 // the time, 0 = dissabled
 #define TIMER_UNIT        UNIT_SECOND
 /*****************
  Determines the unit used for the countdown time
@@ -82,12 +83,12 @@ void setup() {
   }
   rtc.enableAlarmInterrupt(ALARM_MINUTES, ALARM_HOURS, ALARM_HOURS, ALARM_NOT_DATES, ALARM_MODE);
   rtc.setCountdownTimer(TIMER_TIME, TIMER_UNIT, TIMER_REPEAT);
-  //rtc.enableCountdownTimer(); // uncomment to enable the countdown timer
-  rtc.disableCountdownTimer();
+  rtc.enableCountdownTimer(); // uncomment to enable the countdown timer
+  //rtc.disableCountdownTimer(); // Uncomment to disable the countdown timer
   rtc.clearInterrupts();
   attachInterrupt(digitalPinToInterrupt(RTC_INTERRUPT_PIN), rtcISR, FALLING);
   
-  
+  /*
   if (!manager.init())
     Serial.println("RFM96 init failed");
   // Defaults after init are 434.0MHz, 0.05MHz AFC pull-in, modulation FSK_Rb2_4Fd36
@@ -103,63 +104,60 @@ void setup() {
   Serial.println("Routing table after EEPROM read: ");
   manager.printRoutingTable();
 
-  lpp.reset();    
+  lpp.reset(); 
+
+  */   
 }
 
-
-void rtcIntHandler() {
-  if (!rtcINT) { // only run if the rtcINT flag is true
-    return;
-  }
-  rtcINT = false; // clear the flag
-  uint8_t flags = rtc.status();
-  rtc.updateTime();
-
-  /*    if ((flags & _BV(STATUS_PORF)))
-    {
-      // code to do if this flag is high
-    }
-    if ((flags & _BV(STATUS_EVF)))
-    {
-      // code to do if this flag is high
-    } */
-  if ((flags & _BV(STATUS_AF))) // Alarm interrupt
-  {
-    // code to do if this flag is high
-    Serial.print("ALARM!! at: ");
-    Serial.print(rtc.stringTime());
-  }
-  if ((flags & _BV(STATUS_TF))) // Timer interrupt
-  {
-    // code to do if this flag is high
-    Serial.print("Timer at: ");
-    Serial.println(rtc.stringTime());
-  }
-  /*    if ((flags & _BV(STATUS_UF)))
-      {
-        // code to do if this flag is high
-      }
-      if ((flags & _BV(STATUS_BSF)))
-      {
-        // code to do if this flag is high
-      }
-      if ((flags & _BV(STATUS_CLKF)))
-      {
-        // code to do if this flag is high
-      }
-      if ((flags & _BV(STATUS_EEBUSY)))
-      {
-        // code to do if this flag is high
-      }  */
-
-
-}
  //Dont put this on the stack:
 uint8_t buf[RH_MESH_MAX_MESSAGE_LEN];
+bool runMessageTest = false; // set true to rin the sendMessageTest function once
+bool gotosleep = true;  // used for testing sleepmode
 
 void loop() {
-  
+  if(gotosleep){
+    LowPower.powerDown(SLEEP_FOREVER,ADC_OFF,BOD_OFF);
+  }
+  rtcIntHandler();
 
+/*********************
+ * the following has the same effect as it is was written before, 
+ * it is just easyer to read and turn on or off.
+ * *********/
+  sendMessageTest(runMessageTest);
+  runMessageTest = false; //only run the message test once
+  listenForMessages(false);
+
+}
+
+// Listen for new messages
+void listenForMessages(bool run){
+  if(!run){ // only run if supposed to
+    return;
+  }
+  uint8_t len = sizeof(buf);
+  uint8_t from;
+  if (manager.recvfromAck(buf, &len, &from))
+  {
+    Serial.print("got request from : 0x");
+    Serial.print(from, HEX);
+    Serial.print(": ");
+    Serial.println((char*)buf);
+
+    lpp.decode(buf,len,root);
+    serializeJsonPretty(root,Serial);
+    Serial.println();
+
+    // Send a reply back to the originator client
+    // if (manager.sendtoWait(data, sizeof(data), from) != RH_ROUTER_ERROR_NONE)
+    //   Serial.println("sendtoWait failed");
+  }
+}
+
+void sendMessageTest(bool run){
+  if(!run){ // only run if supposed to
+    return;
+  }
   // Do measurement
   float measVCC = (float) measureVCC(false);
 
@@ -192,26 +190,61 @@ void loop() {
      Serial.println("sendtoWait failed. Are the intermediate nodes running?");
 
   saveRoutingTable(routingTableFirstAddr,&manager);
+}
 
-  // Listen for new messages
-  while(true){
-    rtcIntHandler();
-    uint8_t len = sizeof(buf);
-    uint8_t from;
-    if (manager.recvfromAck(buf, &len, &from))
+void rtcIntHandler() {
+  if (!rtcINT) { // only run if the rtcINT flag is true
+    return;
+  }
+  rtcINT = false; // clear the flag
+  uint8_t flags = rtc.status();
+  rtc.updateTime();
+
+  /*    if ((flags & _BV(STATUS_PORF)))
     {
-      Serial.print("got request from : 0x");
-      Serial.print(from, HEX);
-      Serial.print(": ");
-      Serial.println((char*)buf);
-
-      lpp.decode(buf,len,root);
-      serializeJsonPretty(root,Serial);
-      Serial.println();
-
-      // Send a reply back to the originator client
-        // if (manager.sendtoWait(data, sizeof(data), from) != RH_ROUTER_ERROR_NONE)
-        //   Serial.println("sendtoWait failed");
+      // code to do if this flag is high
+    }
+    if ((flags & _BV(STATUS_EVF)))
+    {
+      // code to do if this flag is high
+    } */
+  if ((flags & _BV(STATUS_AF))) // Alarm interrupt
+  {
+    // code to do if this flag is high
+    Serial.print("ALARM!! at: ");
+    Serial.print(rtc.stringTime());
+    
+    
+  }
+  if ((flags & _BV(STATUS_TF))) // Timer interrupt
+  {
+    // code to do if this flag is high
+    Serial.print("Timer at: ");
+    Serial.println(rtc.stringTime());
+    
+    if(gotosleep){ // used for testing sleep mode
+      gotosleep = false;
+    }else
+    {
+      gotosleep = true;
     }
   }
+  /*    if ((flags & _BV(STATUS_UF)))
+      {
+        // code to do if this flag is high
+      }
+      if ((flags & _BV(STATUS_BSF)))
+      {
+        // code to do if this flag is high
+      }
+      if ((flags & _BV(STATUS_CLKF)))
+      {
+        // code to do if this flag is high
+      }
+      if ((flags & _BV(STATUS_EEBUSY)))
+      {
+        // code to do if this flag is high
+      }  */
+
+
 }
