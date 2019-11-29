@@ -209,7 +209,7 @@ void rtcIntHandler() {
   {
     // code to do if this flag is high
     Serial.print("ALARM!! at: ");
-    Serial.print(rtc.stringTime());
+    Serial.println(rtc.stringTime());
     
     
   }
