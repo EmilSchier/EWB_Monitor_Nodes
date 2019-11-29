@@ -19,6 +19,8 @@ JsonArray root = jsonBuffer.to<JsonArray>();
 RV3028 rtc;
 
 // Defines
+// PIN definitions
+#define EN_LORA           3
 #define RTC_INTERRUPT_PIN 10
 
 // defines the time and date to be set
@@ -49,7 +51,7 @@ If you want to set a weekday alarm (setWeekdayAlarm_not_Date = true), set 'date_
 #define ALARM_NOT_DATES   false
 #define ALARM_MODE        7 //disabled 
 
-#define TIMER_TIME        0 // the time, 0 = dissabled
+#define TIMER_TIME        20 // the time, 0 = dissabled
 #define TIMER_UNIT        UNIT_SECOND
 /*****************
  Determines the unit used for the countdown time
@@ -72,7 +74,10 @@ void rtcISR() {
 
 void setup() {
   pinMode(RTC_INTERRUPT_PIN, INPUT);
-  
+  pinMode(EN_LORA,OUTPUT);
+
+  digitalWrite(EN_LORA,HIGH); // enable power to the LoRa module
+
   Serial.begin(9600);
   Wire.begin();
   
@@ -84,7 +89,7 @@ void setup() {
   rtc.enableAlarmInterrupt(ALARM_MINUTES, ALARM_HOURS, ALARM_HOURS, ALARM_NOT_DATES, ALARM_MODE);
   rtc.setCountdownTimer(TIMER_TIME, TIMER_UNIT, TIMER_REPEAT);
   //rtc.enableCountdownTimer(); // uncomment to enable the countdown timer
-  rtc.disableCountdownTimer(); // Uncomment to disable the countdown timer
+  //rtc.disableCountdownTimer(); // Uncomment to disable the countdown timer
   rtc.clearInterrupts();
   attachInterrupt(digitalPinToInterrupt(RTC_INTERRUPT_PIN), rtcISR, FALLING);
   
@@ -106,25 +111,65 @@ void setup() {
 
   lpp.reset(); 
 
-     
+  digitalWrite(EN_LORA,LOW); // Cut power for the Lora module
+  Serial.println("starting test, awake doing nothing");
+   rtc.enableCountdownTimer();
 }
 
  //Dont put this on the stack:
 uint8_t buf[RH_MESH_MAX_MESSAGE_LEN];
-bool runMessageTest = false; // set true to rin the sendMessageTest function once
 bool gotosleep = false;  
+bool test = false;
 
 void loop() {
+
   if(gotosleep){
+    Serial.println("going to sleep");
     LowPower.powerDown(SLEEP_FOREVER,ADC_OFF,BOD_OFF);
+    gotosleep = false; // only go to sleep again when asked to.
   }
   rtcIntHandler();
 
+  if(test){
+     rtc.disableCountdownTimer();
+     Serial.println("sending messages");
+    digitalWrite(EN_LORA,HIGH);
+    Serial.println("tx power: +5"); // er ikke komplet sikker på værdigerne, men i RH_RF95.h står der  mellem +5 og +20
+                                    // databladet siger +2 til +20 men at man skal være opmærksom ved +20
+    driver.setTxPower(5,false);
+    sendMessageTest(true);
+    delay(5000);
+    Serial.println("tx power: +10");
+    driver.setTxPower(10,false);
+    sendMessageTest(true);
+    delay(5000);
+    Serial.println("tx power: +13 (standard)");
+    driver.setTxPower(13,false);
+    sendMessageTest(true);
+    delay(5000);
+    Serial.println("tx power: +15");
+    driver.setTxPower(15,false);
+    sendMessageTest(true);
+    delay(5000);
+    Serial.println("tx power: +20");
+    driver.setTxPower(20,false);
+    sendMessageTest(true);
+    delay(5000);
+    
+    Serial.println("starting to listen");
+    while (test)
+    {
+      listenForMessages(true);
+    }
 
-  sendMessageTest(runMessageTest);
-  runMessageTest = false; //only run the message test once
-  listenForMessages(false);
-
+    digitalWrite(EN_LORA,LOW);
+  }
+  Serial.println("test done going to infinete loop");
+  while (1)
+  {
+    // loop forever
+  }
+  
 }
 
 // Listen for new messages
@@ -145,6 +190,7 @@ void listenForMessages(bool run){
     serializeJsonPretty(root,Serial);
     Serial.println();
 
+    test = false;
     // Send a reply back to the originator client
     // if (manager.sendtoWait(data, sizeof(data), from) != RH_ROUTER_ERROR_NONE)
     //   Serial.println("sendtoWait failed");
@@ -155,6 +201,7 @@ void sendMessageTest(bool run){
   if(!run){ // only run if supposed to
     return;
   }
+  
   // Do measurement
   float measVCC = (float) measureVCC(false);
 
@@ -188,7 +235,7 @@ void sendMessageTest(bool run){
 
   saveRoutingTable(routingTableFirstAddr,&manager);
 }
-
+uint8_t timesAwake = 0;
 void rtcIntHandler() {
   if (!rtcINT) { // only run if the rtcINT flag is true
     return;
@@ -210,8 +257,6 @@ void rtcIntHandler() {
     // code to do if this flag is high
     Serial.print("ALARM!! at: ");
     Serial.println(rtc.stringTime());
-    
-    
   }
   if ((flags & _BV(STATUS_TF))) // Timer interrupt
   {
@@ -219,7 +264,15 @@ void rtcIntHandler() {
     Serial.print("Timer at: ");
     Serial.println(rtc.stringTime());
     
-    
+    if (0 == timesAwake)
+    {
+      timesAwake ++;
+      gotosleep = true;
+    }else if (1 == timesAwake)
+    {
+      timesAwake ++;
+      test = true;
+    }
   }
   /*    if ((flags & _BV(STATUS_UF)))
       {
