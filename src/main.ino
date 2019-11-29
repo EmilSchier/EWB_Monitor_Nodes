@@ -49,7 +49,7 @@ If you want to set a weekday alarm (setWeekdayAlarm_not_Date = true), set 'date_
 #define ALARM_NOT_DATES   false
 #define ALARM_MODE        7 //disabled 
 
-#define TIMER_TIME        10 // the time, 0 = dissabled
+#define TIMER_TIME        0 // the time, 0 = dissabled
 #define TIMER_UNIT        UNIT_SECOND
 /*****************
  Determines the unit used for the countdown time
@@ -83,12 +83,12 @@ void setup() {
   }
   rtc.enableAlarmInterrupt(ALARM_MINUTES, ALARM_HOURS, ALARM_HOURS, ALARM_NOT_DATES, ALARM_MODE);
   rtc.setCountdownTimer(TIMER_TIME, TIMER_UNIT, TIMER_REPEAT);
-  rtc.enableCountdownTimer(); // uncomment to enable the countdown timer
-  //rtc.disableCountdownTimer(); // Uncomment to disable the countdown timer
+  //rtc.enableCountdownTimer(); // uncomment to enable the countdown timer
+  rtc.disableCountdownTimer(); // Uncomment to disable the countdown timer
   rtc.clearInterrupts();
   attachInterrupt(digitalPinToInterrupt(RTC_INTERRUPT_PIN), rtcISR, FALLING);
   
-  /*
+  
   if (!manager.init())
     Serial.println("RFM96 init failed");
   // Defaults after init are 434.0MHz, 0.05MHz AFC pull-in, modulation FSK_Rb2_4Fd36
@@ -106,13 +106,13 @@ void setup() {
 
   lpp.reset(); 
 
-  */   
+     
 }
 
  //Dont put this on the stack:
 uint8_t buf[RH_MESH_MAX_MESSAGE_LEN];
 bool runMessageTest = false; // set true to rin the sendMessageTest function once
-bool gotosleep = true;  // used for testing sleepmode
+bool gotosleep = false;  
 
 void loop() {
   if(gotosleep){
@@ -120,10 +120,7 @@ void loop() {
   }
   rtcIntHandler();
 
-/*********************
- * the following has the same effect as it is was written before, 
- * it is just easyer to read and turn on or off.
- * *********/
+
   sendMessageTest(runMessageTest);
   runMessageTest = false; //only run the message test once
   listenForMessages(false);
@@ -222,12 +219,7 @@ void rtcIntHandler() {
     Serial.print("Timer at: ");
     Serial.println(rtc.stringTime());
     
-    if(gotosleep){ // used for testing sleep mode
-      gotosleep = false;
-    }else
-    {
-      gotosleep = true;
-    }
+    
   }
   /*    if ((flags & _BV(STATUS_UF)))
       {
