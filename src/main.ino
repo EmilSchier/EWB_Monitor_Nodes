@@ -123,6 +123,16 @@ bool test = false;
 
 void loop() {
 
+/************************
+ * This is code for testing power draw of the system in different states. 
+ * 1. The microcontroller wil start of with 20 seconds of doing nothing after setup
+ * 2. then 20 seconds of sleep in deep sleep mode.
+ * 3. a series of messages wil be sent approximatley 5 seconds appart 
+ *    with increasing power levels
+ * 4. The microcontroller will listen for messages with the LoRa module
+ * 5. the microcontroller will go to an infinete loop
+*************************/ 
+
   if(gotosleep){
     Serial.println("going to sleep");
     LowPower.powerDown(SLEEP_FOREVER,ADC_OFF,BOD_OFF);
