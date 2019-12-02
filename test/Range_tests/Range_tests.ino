@@ -4,7 +4,8 @@
 #include "RV-3028-C7.h"
 
 //RH_RF95/RFM96 driver;
-RH_RF95 driver(53,2);   // pins for Mega
+RH_RF95 driver(4,2);   // pins for 1284P
+//RH_RF95 driver(53,2);   // pins for Mega
 
 // Class to manage message delivery and receipt, using the driver declared above
 RHMesh manager(driver, NODE1_ADDRESS);
@@ -22,25 +23,6 @@ RV3028 rtc;
 #define DATE        1
 #define MONTH       1
 #define YEAR        2019
-
-/*********************************
-Set the alarm mode in the following way:
-0: When minutes, hours and weekday/date match (once per weekday/date)
-1: When hours and weekday/date match (once per weekday/date)
-2: When minutes and weekday/date match (once per hour per weekday/date)
-3: When weekday/date match (once per weekday/date)
-4: When hours and minutes match (once per day)
-5: When hours match (once per day)
-6: When minutes match (once per hour)
-7: All disabled � Default value
-If you want to set a weekday alarm (setWeekdayAlarm_not_Date = true), set 'date_or_weekday' from 0 (Sunday) to 6 (Saturday)
-********************************/
-#define ALARM_MINUTES     0
-#define ALARM_HOURS       12
-#define ALARM_WEEKDAY     0
-#define ALARM_DATE        1
-#define ALARM_NOT_DATES   false
-#define ALARM_MODE        7 //disabled 
 
 #define TIMER_TIME        10 // the time, 0 = dissabled
 #define TIMER_UNIT        UNIT_SECOND
@@ -70,6 +52,10 @@ void rtcISR() {
 
 void setup() {
   pinMode(RTC_INTERRUPT_PIN, INPUT);
+  pinMode(PC4,INPUT);
+  pinMode(PC5,INPUT);
+  pinMode(PC6,INPUT);  
+  pinMode(PC7,INPUT);
   
   Serial.begin(9600);
   Wire.begin();
@@ -80,11 +66,27 @@ void setup() {
   
   driver.setFrequency(radioFrequency);
   driver.setTxPower(txPower,false);
-  
-  driver.setModemConfig(RH_RF95::Bw500Cr45Sf128);  // Fast and short range
-  //driver.setModemConfig(RH_RF95::Bw125Cr45Sf128);  // Medium range
-  //driver.setModemConfig(RH_RF95::Bw31_25Cr48Sf512);  // Slow and long range
-  //driver.setModemConfig(RH_RF95::Bw125Cr48Sf4096);  // Slow and long range
+
+  if (PC4) {
+    driver.setModemConfig(RH_RF95::Bw500Cr45Sf128);  // Fast and short range
+    Serial.println("Config set: Bw500Cr45Sf128");
+  }
+  else if (PC5) {
+    driver.setModemConfig(RH_RF95::Bw125Cr45Sf128);  // Medium range
+    Serial.println("Config set: Bw500Cr45Sf128");
+  }
+  else if (PC6) {
+    driver.setModemConfig(RH_RF95::Bw31_25Cr48Sf512);  // Slow and long range
+    Serial.println("Config set: Bw31_25Cr48Sf512");
+  }
+  else if (PC7) {
+    driver.setModemConfig(RH_RF95::Bw125Cr48Sf4096);  // Slow and long range
+    Serial.println("Config set: Bw125Cr48Sf4096");
+  }
+  else {
+    Serial.println("Error - no input on PC4 to PC7.");
+    while(true);
+  }
 
   manager.clearRoutingTable();          // clear routing table
 
@@ -93,10 +95,10 @@ void setup() {
   if (rtc.setTime(SECONDS, MINUTES, HOURS, WEEKDAY, DATE, MONTH, YEAR)) {
     Serial.println("time set");
   }
-  rtc.enableAlarmInterrupt(ALARM_MINUTES, ALARM_HOURS, ALARM_HOURS, ALARM_NOT_DATES, ALARM_MODE);
   rtc.setCountdownTimer(TIMER_TIME, TIMER_UNIT, TIMER_REPEAT);
   rtc.enableCountdownTimer(); // uncomment to enable the countdown timer
   //rtc.disableCountdownTimer(); // Uncomment to disable the countdown timer
+  
   rtc.clearInterrupts();
   attachInterrupt(digitalPinToInterrupt(RTC_INTERRUPT_PIN), rtcISR, FALLING);  
 }
@@ -110,7 +112,7 @@ void loop() {
 
   listenForMessages(listener);
   rtcIntHandler();
-  
+
 }
 
 // Listen for new messages
@@ -127,6 +129,9 @@ void listenForMessages(bool run){
     Serial.println(from, HEX);
     Serial.print("Received data: ");
     Serial.println((char*)buf);
+    uint16_t Rssi = driver.lastRssi();
+    Serial.print("Rssi: ");
+    Serial.println(Rssi);
   }
 }
 
@@ -136,12 +141,12 @@ void sendMessage(bool run){
     return;
   }
   
-  Serial.println("Sending to NODE3_ADDRESS");
+  Serial.println("Sending to NODE2_ADDRESS");
   uint8_t payload[] = "8 bytes!";  // messageID i stedet? 
   long int recTime = 0;
   long int sendTime = millis();
   // Send start timestamp, which gives an eight byte payload. 
-  if (manager.sendtoWait(payload, sizeof(payload), NODE3_ADDRESS) == RH_ROUTER_ERROR_NONE)
+  if (manager.sendtoWait(payload, sizeof(payload), NODE2_ADDRESS) == RH_ROUTER_ERROR_NONE)
   {
     int recTime = millis();  // is run as soon as the data has been send and acknowledged by the next node. 
     
@@ -187,7 +192,7 @@ void rtcIntHandler() {
     //Serial.print("Timer at: ");
     //Serial.println(rtc.stringTime());
 
-    sendMessage(sender);  // Kun ved RTC interrupt
+    sendMessage(sender);
     
   }
   /*    if ((flags & _BV(STATUS_UF)))
