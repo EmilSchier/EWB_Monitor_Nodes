@@ -6,7 +6,7 @@
 #include <LowPower.h>
 
 //RH_RF95/RFM96 driver;
-RH_RF95 driver(53,2);   // pins for Mega
+RH_RF95 driver(4,2);   // pins for Mega
 
 // Class to manage message delivery and receipt, using the driver declared above
 RHMesh manager(driver, NODE1_ADDRESS);
@@ -78,7 +78,8 @@ void setup() {
 
   digitalWrite(EN_LORA,HIGH); // enable power to the LoRa module
 
-  Serial.begin(9600);
+  //
+Serial.begin(9600);
   Wire.begin();
   
   // setup RTC 
@@ -125,8 +126,8 @@ void loop() {
 
 /************************
  * This is code for testing power draw of the system in different states. 
- * 1. The microcontroller wil start of with 20 seconds of doing nothing after setup
- * 2. then 20 seconds of sleep in deep sleep mode.
+ * 1. The microcontroller wil start of with 10 seconds of doing nothing after setup
+ * 2. then 10 seconds of sleep in deep sleep mode.
  * 3. a series of messages wil be sent approximatley 5 seconds appart 
  *    with increasing power levels
  * 4. The microcontroller will listen for messages with the LoRa module
@@ -135,6 +136,7 @@ void loop() {
 
   if(gotosleep){
     Serial.println("going to sleep");
+    delay(200);
     LowPower.powerDown(SLEEP_FOREVER,ADC_OFF,BOD_OFF);
     gotosleep = false; // only go to sleep again when asked to.
   }
@@ -173,12 +175,13 @@ void loop() {
     }
 
     digitalWrite(EN_LORA,LOW);
-  }
-  Serial.println("test done going to infinete loop");
+    Serial.println("test done going to infinete loop");
   while (1)
-  {
-    // loop forever
+    {
+      // loop forever
+    }
   }
+  
   
 }
 
