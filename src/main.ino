@@ -6,7 +6,7 @@
 #include <LowPower.h>
 
 //RH_RF95/RFM96 driver;
-RH_RF95 driver(4,2);   // pins for Mega
+RH_RF95 driver(4,2);   // pins for ATmega1284p
 
 // Class to manage message delivery and receipt, using the driver declared above
 RHMesh manager(driver, NODE1_ADDRESS);
@@ -51,7 +51,7 @@ If you want to set a weekday alarm (setWeekdayAlarm_not_Date = true), set 'date_
 #define ALARM_NOT_DATES   false
 #define ALARM_MODE        7 //disabled 
 
-#define TIMER_TIME        20 // the time, 0 = dissabled
+#define TIMER_TIME        10 // the time, 0 = dissabled
 #define TIMER_UNIT        UNIT_SECOND
 /*****************
  Determines the unit used for the countdown time
@@ -59,7 +59,7 @@ If you want to set a weekday alarm (setWeekdayAlarm_not_Date = true), set 'date_
  UNIT_SECOND    =   Seconds
  UNIT_M_SECOND  =   milliseconds
  ****************/
-#define TIMER_REPEAT      true // Repeat mode true or false
+#define TIMER_REPEAT      false // Repeat mode true or false
 
 
 double vcc;
@@ -128,46 +128,74 @@ void loop() {
  * This is code for testing power draw of the system in different states. 
  * 1. The microcontroller wil start of with 10 seconds of doing nothing after setup
  * 2. then 10 seconds of sleep in deep sleep mode.
- * 3. a series of messages wil be sent approximatley 5 seconds appart 
- *    with increasing power levels
+ * 3. a series of messages wil be sent approximatley 1 second appart 
+ *    with decreasing power levels
  * 4. The microcontroller will listen for messages with the LoRa module
  * 5. the microcontroller will go to an infinete loop
 *************************/ 
 
   if(gotosleep){
     Serial.println("going to sleep");
+    rtc.setCountdownTimer(TIMER_TIME, TIMER_UNIT, TIMER_REPEAT);
+    rtc.enableCountdownTimer();
     delay(200);
+
     LowPower.powerDown(SLEEP_FOREVER,ADC_OFF,BOD_OFF);
     gotosleep = false; // only go to sleep again when asked to.
   }
   rtcIntHandler();
 
   if(test){
-     rtc.disableCountdownTimer();
-     Serial.println("sending messages");
+    Serial.println("sending messages");
     digitalWrite(EN_LORA,HIGH);
-    Serial.println("tx power: +5"); // er ikke komplet sikker på værdigerne, men i RH_RF95.h står der  mellem +5 og +20
-                                    // databladet siger +2 til +20 men at man skal være opmærksom ved +20
-    driver.setTxPower(5,false);
-    sendMessageTest(true);
-    delay(5000);
-    Serial.println("tx power: +10");
-    driver.setTxPower(10,false);
-    sendMessageTest(true);
-    delay(5000);
-    Serial.println("tx power: +13 (standard)");
-    driver.setTxPower(13,false);
-    sendMessageTest(true);
-    delay(5000);
-    Serial.println("tx power: +15");
-    driver.setTxPower(15,false);
-    sendMessageTest(true);
-    delay(5000);
-    Serial.println("tx power: +20");
-    driver.setTxPower(20,false);
-    sendMessageTest(true);
-    delay(5000);
+    delay(200);
+    if (!manager.init())
+      Serial.println("RFM96 init failed");
+    // Defaults after init are 434.0MHz, 0.05MHz AFC pull-in, modulation FSK_Rb2_4Fd36
+    driver.setFrequency(radioFrequency);
     
+    delay(200);
+    Serial.println("tx power: +20");  // er ikke komplet sikker på værdigerne, men i RH_RF95.h står der  mellem +5 og +20
+                                      // databladet siger +2 til +20 men at man skal være opmærksom ved +20
+    delay(200);
+    driver.setTxPower(20,false);
+    delay(200);
+    sendMessageTest(true);
+    delay(1000);
+    
+    Serial.println("tx power: +15");  // er ikke komplet sikker på værdigerne, men i RH_RF95.h står der  mellem +5 og +20
+                                      // databladet siger +2 til +20 men at man skal være opmærksom ved +20
+    delay(200);
+    driver.setTxPower(15,false);
+    delay(200);
+    sendMessageTest(true);
+    delay(1000);
+
+    Serial.println("tx power: +13 (standard)");  // er ikke komplet sikker på værdigerne, men i RH_RF95.h står der  mellem +5 og +20
+                                      // databladet siger +2 til +20 men at man skal være opmærksom ved +20
+    delay(200);
+    driver.setTxPower(13,false);
+    delay(200);
+    sendMessageTest(true);
+    delay(1000);
+
+    Serial.println("tx power: +10");  // er ikke komplet sikker på værdigerne, men i RH_RF95.h står der  mellem +5 og +20
+                                      // databladet siger +2 til +20 men at man skal være opmærksom ved +20
+    delay(200);
+    driver.setTxPower(10,false);
+    delay(200);
+    sendMessageTest(true);
+    delay(1000);
+
+    Serial.println("tx power: +5");  // er ikke komplet sikker på værdigerne, men i RH_RF95.h står der  mellem +5 og +20
+                                      // databladet siger +2 til +20 men at man skal være opmærksom ved +20
+    delay(200);
+    driver.setTxPower(5,false);
+    delay(200);
+    sendMessageTest(true);
+    delay(1000);
+
+
     Serial.println("starting to listen");
     while (test)
     {
