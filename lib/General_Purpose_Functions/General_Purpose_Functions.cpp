@@ -35,7 +35,7 @@ double measureVCC(bool in_mV)
 }
 
 /***************
- * 
+ * Updates the status of the voltage suply and determines if it is in good shape or not
  * 
  **************/
 void updateSupplyStatus(supplyStatusStruct *p)
