@@ -34,6 +34,51 @@ double measureVCC(bool in_mV)
     return result;
 }
 
+/***************
+ * 
+ * 
+ **************/
+void updateSupplyStatus(supplyStatusStruct *p)
+{
+    p->vcc = measureVCC(true);
+    p->vSupercap = measureUnregulatetVCC();
+
+    if(VCAP_THRESHHOLD_EXCELLENT <= p->vSupercap){
+        p->statusFlag = SupplyIsExcellent;
+    }else if(VCAP_THRESHHOLD_GOOD <= p->vSupercap){
+        p->statusFlag = SupplyIsGood;
+    }else if(VCAP_THRESHHOLD_MODERATE <= p->vSupercap){
+        p->statusFlag = SupplyIsModerate;
+    }else if(VCAP_THRESHHOLD_BAD <= p->vSupercap){
+        p->statusFlag = SupplyIsBad;
+    }else if(VCAP_THRESHHOLD_TERREBLE >= p->vSupercap |VCC_THRESHHOLD >= p->vcc){
+        p->statusFlag = SupplyIsTerreble;
+    }
+}
+
+/***************
+ * Returns a measurement of the unregulatet 
+ * voltage sauce of the system in mV
+ **************/
+bool pinSetOutput = false;
+uint16_t measureUnregulatetVCC()
+{
+    byte adcSettings = ADMUX; // copy ADC settings so as to reinsert them later
+    ADMUX = 0;                // reset ADC settings
+    
+    if(!pinSetOutput){ // Only when first called the Pin will be set to output 
+        pinMode(CAP_MEAS_ON_OFF_PIN,OUTPUT);
+        pinSetOutput= true;
+    }
+    digitalWrite(CAP_MEAS_ON_OFF_PIN,HIGH);
+    analogReference(INTERNAL1V1);
+    delay(2);                 // Wait for Vref to settle
+    uint16_t meas = ((1.1 / 1023 * 1000) * digitalRead(CAP_MEAS_PIN))/(CAP_MEAS_R2/(CAP_MEAS_R2+CAP_MEAS_R1));
+    digitalWrite(CAP_MEAS_ON_OFF_PIN,LOW);
+    ADMUX = adcSettings; // reinstate previus adc settings
+    return meas;
+}
+
 void getRoutingTable(int row_addr, RHMesh *ptrManager)
 {
     // This functions gets the most recent routing table saved in EEPROM memory.
