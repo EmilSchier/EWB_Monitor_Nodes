@@ -40,9 +40,11 @@ double measureVCC(bool in_mV)
  **************/
 void updateSupplyStatus(supplyStatusStruct *p)
 {
-    p->vcc = measureVCC(true);
+    
     p->vSupercap = measureUnregulatetVCC();
-
+    delay(100);
+    p->vcc = measureVCC(true);
+    
     if(VCAP_THRESHHOLD_EXCELLENT <= p->vSupercap){
         p->statusFlag = SupplyIsExcellent;
     }else if(VCAP_THRESHHOLD_GOOD <= p->vSupercap){
@@ -51,7 +53,7 @@ void updateSupplyStatus(supplyStatusStruct *p)
         p->statusFlag = SupplyIsModerate;
     }else if(VCAP_THRESHHOLD_BAD <= p->vSupercap){
         p->statusFlag = SupplyIsBad;
-    }else if(VCAP_THRESHHOLD_TERREBLE >= p->vSupercap |VCC_THRESHHOLD >= p->vcc){
+    }else if(VCAP_THRESHHOLD_TERREBLE >= p->vSupercap || VCC_THRESHHOLD >= p->vcc){
         p->statusFlag = SupplyIsTerreble;
     }
 }
@@ -63,20 +65,23 @@ void updateSupplyStatus(supplyStatusStruct *p)
 bool pinSetOutput = false;
 uint16_t measureUnregulatetVCC()
 {
-    byte adcSettings = ADMUX; // copy ADC settings so as to reinsert them later
-    ADMUX = 0;                // reset ADC settings
-    
-    if(!pinSetOutput){ // Only when first called the Pin will be set to output 
+    byte adcSettings = ADMUX; // copy ADC settings so as to reinsert them later // may have to be removed
+    if(!pinSetOutput){
         pinMode(CAP_MEAS_ON_OFF_PIN,OUTPUT);
-        pinSetOutput= true;
+        pinSetOutput = true;
     }
-    digitalWrite(CAP_MEAS_ON_OFF_PIN,HIGH);
     analogReference(INTERNAL1V1);
-    delay(2);                 // Wait for Vref to settle
-    uint16_t meas = ((1.1 / 1023 * 1000) * digitalRead(CAP_MEAS_PIN))/(CAP_MEAS_R2/(CAP_MEAS_R2+CAP_MEAS_R1));
-    digitalWrite(CAP_MEAS_ON_OFF_PIN,LOW);
-    ADMUX = adcSettings; // reinstate previus adc settings
-    return meas;
+    double result = analogRead(CAP_MEAS_PIN);
+
+    result = (1100/1024)*result; 
+    //result = (result*(CAP_MEAS_R1+CAP_MEAS_R2))/CAP_MEAS_R2;
+
+    ADMUX = adcSettings; // may have to be removed
+    adcSettings = (adcSettings & 0b11000000)>>6; // make the adc settings into the analog reference mode;
+    // set the analog reference to what it was before, this has to be done in case another setting is used
+    // somewhere else and because of the way arduino does analog reads.
+    analogReference(adcSettings);
+    return result;
 }
 
 void getRoutingTable(int row_addr, RHMesh *ptrManager)

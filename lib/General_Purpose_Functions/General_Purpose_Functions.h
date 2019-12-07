@@ -24,7 +24,7 @@
 #define STATJSONBUFFERSIZE 512  // use https://arduinojson.org/v5/assistant/ to calculate the proper size
 
 //Pin definitions
-#define CAP_MEAS_PIN        24
+#define CAP_MEAS_PIN        A0
 #define CAP_MEAS_ON_OFF_PIN 25
 
 // Definitions for Supply status function
@@ -59,7 +59,8 @@ typedef struct supplyStatusStruct
 //      bool in_mV      : determines if retuned value is in mV or V.
 // returns the measured VCC value.
 double measureVCC(bool in_mV);
-
+void updateSupplyStatus(supplyStatusStruct *p);
+uint16_t measureUnregulatetVCC();
 // This functions gets the most recent routing table saved in EEPROM memory 
 // and saves it in the manager pointet to by ptrManager.
 // Arguments: 
