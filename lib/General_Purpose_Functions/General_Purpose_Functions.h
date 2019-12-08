@@ -6,6 +6,7 @@
 #include <EEPROM.h>
 #include "RHMesh.h"
 #include "RH_RF95.h"
+#include <CayenneLPP.h>
 
 // Defines
 #define routingTableFirstAddr  0
@@ -22,6 +23,15 @@
 #define PAYLOADMAXSIZE 51
 #define DYNJSONBUFFERSIZE 4096
 #define STATJSONBUFFERSIZE 512  // use https://arduinojson.org/v5/assistant/ to calculate the proper size
+
+struct statusflagsType{
+    bool connectet;
+    bool gsmNotSent;
+    uint8_t timesAwake;
+    uint8_t tsSeconds, tsMinutes, tsHours;
+    
+
+} statusflags;
 
 
 //Functions 
