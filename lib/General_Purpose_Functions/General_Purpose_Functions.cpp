@@ -148,3 +148,61 @@ void deleteRoutingTableEEPROM(int row_addr)
         EEPROM.write((row_addr + i), 0);
     }
 }
+
+// Function sends 
+void sendGSMData(const uint8_t *payload, uint8_t payloadSize) {
+
+  // Software serial object to communicate with SIM800L
+  SoftwareSerial mySerial(TXSOFTSERIAL, RXSOFTSERIAL);
+
+  digitalWrite(SWITCH_GSM, HIGH);  // Set GSM load switch in ON state
+  delay(7500);  // Wait for module to be initialised and ready
+  
+  mySerial.begin(115200);
+  delay(1000);  // It takes time to begin serial
+  
+  //mySerial.println("AT+IPR=115200"); // Save fixed baud on non volatile memory. SIM800L will now give 'RDY' when initialised on start up. Can be used instead of delay. 
+  //mySerial.println("AT");  //Handshake
+  //updateSerial(mySerial);
+
+  // Text mode:
+  mySerial.println("AT+CMGF=1"); // Configuring TEXT mode
+  updateSerial(mySerial);
+  mySerial.print("AT+CMGS=\"+");  // Enter number with country code.
+  mySerial.print(PHONENUMBERCOUNTRYCODE);
+  mySerial.print(PHONENUMBER);
+  mySerial.println("\"");
+  updateSerial(mySerial);
+  //lpp.decode(lpp.getBuffer(),lpp.getSize(),root);  // Decodes lpp buffer and saves it in the reserved memory 'JsonArray root'. 
+  //serializeJsonPretty(root,mySerial);  // Serializes/creates a JSON document with spaces and line-breaks between values.
+  mySerial.write(payload, sizeof(payloadSize)); // Message text content. Maximum of 160 characters. ÅÆØ and other special characters will not work without a different encoding
+
+  // PDU mode (binary mode - not implemented)
+  // Reference: https://www.developershome.com/sms/cmgsCommand6.asp
+//  mySerial.println("AT+CMGF=0");  // Configuring PDU mode
+//  updateSerial();
+//  mySerial.println("AT+CMGS=17");
+//  updateSerial();
+//  mySerial.print("0691540493909911000A9154064262040004AA0454657374"); // Sending to +45 60 24 26 40
+//  // Used http://www.twit88.com/home/utility/sms-pdu-encode-decode 
+//  mySerial.write(26);  // 26 = 'Ctrl+z character (ASCII)'
+//  updateSerial();
+
+  mySerial.write(26);  // 26 = 'Ctrl+z character (ASCII)' -> send
+  delay(100);  // wait for data to be send
+  mySerial.end();
+  digitalWrite(SWITCH_GSM, LOW);  // Set load switch in OFF state  
+}
+
+void updateSerial(SoftwareSerial mySerial)
+{
+  delay(500);
+  while (Serial.available()) 
+  {
+    mySerial.write(Serial.read()); //Forward what Serial received to Software Serial Port
+  }
+  while(mySerial.available()) 
+  {
+    Serial.write(mySerial.read()); //Forward what Software Serial received to Serial Port
+  }
+}
