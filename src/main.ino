@@ -62,7 +62,7 @@ If you want to set a weekday alarm (setWeekdayAlarm_not_Date = true), set 'date_
  ****************/
 #define TIMER_REPEAT true // Repeat mode true or false
 
-#define HAS_GSM // uncomment if the specific node to be set up does not have a GSM module
+#define HAS_GSM true// set false if the specific node to be set up does not have a GSM module
 
 struct countcownTimerType timerSettings = {TIMER_TIME, TIMER_UNIT, TIMER_REPEAT};
 
@@ -161,6 +161,7 @@ void rtcIntHandler()
      * For example making a measurement at a specific time ore with a specific time differance
      ***************************************/
 
+    // see if the timer time is very low, if it is, then do not count them as waking
     if ((20 <= timerSettings.time && UNIT_SECOND == timerSettings.unit) || (10000 <= timerSettings.time && UNIT_M_SECOND == timerSettings.unit))
     {
       /****************************************
@@ -169,7 +170,7 @@ void rtcIntHandler()
      ***************************************/
       if (WAKE_TIMES_BEFORE_STATUS_CHECK <= statusflags.timesAwake)
       {
-        // updateSupplyStatus(/* pointer to supplyStatus Variable */);
+        updateSupplyStatus(&supplyStatus);
         statusflags.tsSeconds = rtc.getSeconds;
         statusflags.tsMinutes = rtc.getMinutes;
         statusflags.tsHours = rtc.getHours;
@@ -186,14 +187,14 @@ void rtcIntHandler()
 
         if (statusflags.connectet)
         {
-          // Send Time on the LoRa network
+          // Send Time pings on the LoRa network
         }
         else
         {
           // Listen for time pings from other nodes
         }
 
-        if (statusflags.gsmNotSent)
+        if (statusflags.gsmNotSent && HAS_GSM == true)
         {
           // Read saved data from EEPROM and send using GSM module
           statusflags.gsmNotSent = false;
