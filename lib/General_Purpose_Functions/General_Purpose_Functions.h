@@ -24,6 +24,7 @@
 #define DYNJSONBUFFERSIZE 4096
 #define STATJSONBUFFERSIZE 512  // use https://arduinojson.org/v5/assistant/ to calculate the proper size
 
+<<<<<<< HEAD
 struct statusflagsType{
     bool connectet;
     bool gsmNotSent;
@@ -33,6 +34,36 @@ struct statusflagsType{
 
 } statusflags;
 
+=======
+//Pin definitions
+#define CAP_MEAS_PIN        A0
+#define CAP_MEAS_ON_OFF_PIN 25
+
+// Definitions for Supply status function
+#define CAP_MEAS_R1                 10000 // R1 of the voltage devider for measuring Capacitor voltage
+#define CAP_MEAS_R2                 2325 // R2 of the voltage devider for measuring Capacitor voltage
+#define VCAP_THRESHHOLD_EXCELLENT   5000 // 
+#define VCAP_THRESHHOLD_GOOD        4700 //
+#define VCAP_THRESHHOLD_MODERATE    4400 //
+#define VCAP_THRESHHOLD_BAD         4000 //
+#define VCAP_THRESHHOLD_TERREBLE    3500 //
+#define VCC_THRESHHOLD              2000 // 
+
+enum supplyStatusFlag{
+    SupplyIsExcellent,
+    SupplyIsGood,
+    SupplyIsModerate,
+    SupplyIsBad,
+    SupplyIsTerreble,
+    };
+
+typedef struct supplyStatusStruct
+{
+    double vcc;
+    double vSupercap;
+    enum supplyStatusFlag statusFlag;
+};
+>>>>>>> Status
 
 //Functions 
 
@@ -41,7 +72,8 @@ struct statusflagsType{
 //      bool in_mV      : determines if retuned value is in mV or V.
 // returns the measured VCC value.
 double measureVCC(bool in_mV);
-
+void updateSupplyStatus(supplyStatusStruct *p);
+uint16_t measureUnregulatetVCC();
 // This functions gets the most recent routing table saved in EEPROM memory 
 // and saves it in the manager pointet to by ptrManager.
 // Arguments: 
