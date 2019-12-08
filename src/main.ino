@@ -68,7 +68,7 @@ struct countcownTimerType timerSettings = {TIMER_TIME, TIMER_UNIT, TIMER_REPEAT}
 
 double vcc;
 volatile bool rtcINT = false;
-// supplyStatus deklerations *********************************************************************
+supplyStatusStruct supplyStatus;
 const float radioFrequency = 868.0;
 
 //RTC interrupt service routine
@@ -114,7 +114,7 @@ void setup()
 
   lpp.reset();
 
-  // updateSupplyStatus();
+  updateSupplyStatus(&supplyStatus);
 }
 
 //Dont put this on the stack:
@@ -180,9 +180,9 @@ void rtcIntHandler()
         statusflags.timesAwake++;
       }
 
-      switch (/* supplyStatus Variable .statusflag */)
+      switch (supplyStatus.statusFlag )
       {
-      case Excellent:
+      case SupplyIsExcellent:
 
         if (statusflags.connectet)
         {
@@ -199,7 +199,7 @@ void rtcIntHandler()
           statusflags.gsmNotSent = false;
         }
         break;
-      case Good:
+      case SupplyIsGood:
         if (statusflags.connectet)
         {
           // Send Time on the LoRa network
@@ -209,17 +209,17 @@ void rtcIntHandler()
           // Listen for time pings from other nodes
         }
         break;
-      case Moderate:
+      case SupplyIsModerate:
         if (!statusflags.connectet)
         {
           // Listen for time pings from other nodes
         }
         break;
-      case Bad:
+      case SupplyIsBad:
         // maybe either make shure to check status more often to cach when things go bad,
         // or make shure to wake less often to save on power
         break;
-      case Terrible:
+      case SupplyIsTerrible:
         // save unsent data to EEPROM
         break;
       default:

@@ -53,8 +53,8 @@ void updateSupplyStatus(supplyStatusStruct *p)
         p->statusFlag = SupplyIsModerate;
     }else if(VCAP_THRESHHOLD_BAD <= p->vSupercap){
         p->statusFlag = SupplyIsBad;
-    }else if(VCAP_THRESHHOLD_TERREBLE >= p->vSupercap || VCC_THRESHHOLD >= p->vcc){
-        p->statusFlag = SupplyIsTerreble;
+    }else if(VCAP_THRESHHOLD_TERRiBLE >= p->vSupercap || VCC_THRESHHOLD >= p->vcc){
+        p->statusFlag = SupplyIsTerrible;
     }
 }
 

@@ -24,17 +24,6 @@
 #define DYNJSONBUFFERSIZE 4096
 #define STATJSONBUFFERSIZE 512  // use https://arduinojson.org/v5/assistant/ to calculate the proper size
 
-<<<<<<< HEAD
-struct statusflagsType{
-    bool connectet;
-    bool gsmNotSent;
-    uint8_t timesAwake;
-    uint8_t tsSeconds, tsMinutes, tsHours;
-    
-
-} statusflags;
-
-=======
 //Pin definitions
 #define CAP_MEAS_PIN        A0
 #define CAP_MEAS_ON_OFF_PIN 25
@@ -46,15 +35,24 @@ struct statusflagsType{
 #define VCAP_THRESHHOLD_GOOD        4700 //
 #define VCAP_THRESHHOLD_MODERATE    4400 //
 #define VCAP_THRESHHOLD_BAD         4000 //
-#define VCAP_THRESHHOLD_TERREBLE    3500 //
+#define VCAP_THRESHHOLD_TERRiBLE    3500 //
 #define VCC_THRESHHOLD              2000 // 
+
+struct statusflagsType{
+    bool connectet;
+    bool gsmNotSent;
+    uint8_t timesAwake;
+    uint8_t tsSeconds, tsMinutes, tsHours;
+    
+
+} statusflags;
 
 enum supplyStatusFlag{
     SupplyIsExcellent,
     SupplyIsGood,
     SupplyIsModerate,
     SupplyIsBad,
-    SupplyIsTerreble,
+    SupplyIsTerrible,
     };
 
 typedef struct supplyStatusStruct
@@ -63,7 +61,6 @@ typedef struct supplyStatusStruct
     double vSupercap;
     enum supplyStatusFlag statusFlag;
 };
->>>>>>> Status
 
 //Functions 
 
