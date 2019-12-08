@@ -14,8 +14,8 @@ RHMesh manager(driver, NODE1_ADDRESS);
 
 // Cayenne Low Power Protocol
 CayenneLPP lpp(PAYLOADMAXSIZE);
-StaticJsonDocument<STATJSONBUFFERSIZE> jsonBuffer;   // Saved on stack. Recommended not to use if reserved memory>1kb.
-JsonArray root = jsonBuffer.to<JsonArray>();
+//StaticJsonDocument<STATJSONBUFFERSIZE> jsonBuffer;   // Saved on stack. Recommended not to use if reserved memory>1kb.
+//JsonArray root = jsonBuffer.to<JsonArray>();
 
 RV3028 rtc;
 
@@ -147,9 +147,9 @@ void listenForMessages(bool run){
     Serial.print(": ");
     Serial.println((char*)buf);
 
-    lpp.decode(buf,len,root);
-    serializeJsonPretty(root,Serial);
-    Serial.println();
+    //lpp.decode(buf,len,root);
+    //serializeJsonPretty(root,Serial);
+    //Serial.println();
 
     // Send a reply back to the originator client
     // if (manager.sendtoWait(data, sizeof(data), from) != RH_ROUTER_ERROR_NONE)
@@ -243,6 +243,4 @@ void rtcIntHandler() {
       {
         // code to do if this flag is high
       }  */
-
-
 }
