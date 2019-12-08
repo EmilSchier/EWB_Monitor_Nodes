@@ -38,7 +38,7 @@ double measureVCC(bool in_mV)
  * Updates the status of the voltage suply and determines if it is in good shape or not
  * 
  **************/
-void updateSupplyStatus(supplyStatusStruct *p)
+void updateSupplyStatus(statusflagsType *p,RV3028 *_rtc)
 {
     analogRead(CAP_MEAS_PIN); // do a garbage read to make shure the users chosen reference is set in the ADMUX register
     p->vSupercap = measureUnregulatetVCC();
@@ -56,6 +56,12 @@ void updateSupplyStatus(supplyStatusStruct *p)
     }else if(VCAP_THRESHHOLD_TERRiBLE >= p->vSupercap || VCC_THRESHHOLD >= p->vcc){
         p->statusFlag = SupplyIsTerrible;
     }
+    _rtc->updateTime();
+    p->tsSeconds = _rtc->getSeconds;
+    p->tsMinutes = _rtc->getMinutes;
+    p->tsHours = _rtc->getHours;
+    
+    return;
 }
 
 /***************

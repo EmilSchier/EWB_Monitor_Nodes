@@ -7,6 +7,7 @@
 #include "RHMesh.h"
 #include "RH_RF95.h"
 #include <CayenneLPP.h>
+#include "RV-3028-C7.h"
 
 // Defines
 #define routingTableFirstAddr  0
@@ -38,13 +39,20 @@
 #define VCAP_THRESHHOLD_TERRiBLE    3500 //
 #define VCC_THRESHHOLD              2000 // 
 
+#define WINDOW_DURATION             20 //
+
 struct statusflagsType{
     bool connectet;
     bool gsmNotSent;
+    bool alarmINT, timerINT,windowEnd;
+    bool gotosleep;
+    bool justRestartet;
+    double vcc;
+    double vSupercap;
+    enum supplyStatusFlag statusFlag;
     uint8_t timesAwake;
     uint8_t tsSeconds, tsMinutes, tsHours;
     
-
 } statusflags;
 
 enum supplyStatusFlag{
@@ -55,21 +63,16 @@ enum supplyStatusFlag{
     SupplyIsTerrible,
     };
 
-typedef struct supplyStatusStruct
-{
-    double vcc;
-    double vSupercap;
-    enum supplyStatusFlag statusFlag;
-};
+
 
 //Functions 
-
+countcownTimerType windowTimerSettings = {WINDOW_DURATION, UNIT_SECOND, false};
 // Measures VCC and returns measured value
 // arguments:
 //      bool in_mV      : determines if retuned value is in mV or V.
 // returns the measured VCC value.
 double measureVCC(bool in_mV);
-void updateSupplyStatus(supplyStatusStruct *p);
+void updateSupplyStatus(statusflagsType *p);
 uint16_t measureUnregulatetVCC();
 // This functions gets the most recent routing table saved in EEPROM memory 
 // and saves it in the manager pointet to by ptrManager.
