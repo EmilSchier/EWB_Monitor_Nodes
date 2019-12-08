@@ -40,6 +40,13 @@
 #define VCC_THRESHHOLD              2000 // 
 
 #define WINDOW_DURATION             20 //
+enum supplyStatusFlag{
+    SupplyIsExcellent,
+    SupplyIsGood,
+    SupplyIsModerate,
+    SupplyIsBad,
+    SupplyIsTerrible,
+    };
 
 struct statusflagsType{
     bool connectet;
@@ -53,26 +60,16 @@ struct statusflagsType{
     uint8_t timesAwake;
     uint8_t tsSeconds, tsMinutes, tsHours;
     
-} statusflags;
-
-enum supplyStatusFlag{
-    SupplyIsExcellent,
-    SupplyIsGood,
-    SupplyIsModerate,
-    SupplyIsBad,
-    SupplyIsTerrible,
-    };
-
-
+};
 
 //Functions 
-countcownTimerType windowTimerSettings = {WINDOW_DURATION, UNIT_SECOND, false};
+
 // Measures VCC and returns measured value
 // arguments:
 //      bool in_mV      : determines if retuned value is in mV or V.
 // returns the measured VCC value.
 double measureVCC(bool in_mV);
-void updateSupplyStatus(statusflagsType *p);
+void updateSupplyStatus(statusflagsType *p,RV3028 *_rtc);
 uint16_t measureUnregulatetVCC();
 // This functions gets the most recent routing table saved in EEPROM memory 
 // and saves it in the manager pointet to by ptrManager.

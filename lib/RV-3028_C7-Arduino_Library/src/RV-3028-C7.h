@@ -181,7 +181,7 @@ enum time_units
 	UNIT_SECOND,
 	UNIT_M_SECOND,
 };
-struct countcownTimerType
+struct countdownTimerType
 {
 	uint16_t time;
 	time_units unit;

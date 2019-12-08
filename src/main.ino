@@ -63,10 +63,11 @@ If you want to set a weekday alarm (setWeekdayAlarm_not_Date = true), set 'date_
  ****************/
 #define TIMER_REPEAT true // Repeat mode true or false
 
-#define HAS_GSM true // set false if the specific node to be set up does not have a GSM module
+#define HAS_GSM false // set false if the specific node to be set up does not have a GSM module
 
-countcownTimerType timerSettings = {TIMER_TIME, TIMER_UNIT, TIMER_REPEAT};
-
+countdownTimerType timerSettings = {TIMER_TIME, TIMER_UNIT, TIMER_REPEAT};
+countdownTimerType windowTimerSettings = {WINDOW_DURATION, UNIT_SECOND, false};
+statusflagsType statusflags;
 double vcc;
 volatile bool rtcINT = false;
 const float radioFrequency = 868.0;
@@ -74,7 +75,7 @@ const float radioFrequency = 868.0;
 #if HAS_GSM == true
 struct bufStruct
 {
-  uint8_t buf[RH_MESH_MAX_MESSAGE_LEN * 100];
+  uint8_t buf[RH_MESH_MAX_MESSAGE_LEN * 20];
   uint16_t curser;
 } dataBuf;
 #endif
@@ -118,7 +119,7 @@ void setup()
   manager.printRoutingTable();
 
   lpp.reset();
-  updateSupplyStatus(&statusflags);
+  updateSupplyStatus(&statusflags,&rtc);
   statusflags.justRestartet = true; // Indikate that we just restartet
 }
 
@@ -209,7 +210,7 @@ void runOnTimerInterrupt()
     if (WAKE_TIMES_BEFORE_STATUS_CHECK <= statusflags.timesAwake)
     {
 
-      updateSupplyStatus(&statusflags);
+      updateSupplyStatus(&statusflags,&rtc);
       statusflags.timesAwake = 0;
     }
     else
@@ -221,22 +222,13 @@ void runOnTimerInterrupt()
     {
     case SupplyIsExcellent:
 
-      if (statusflags.connectet)
-      {
-        // Send Time pings on the LoRa network
-      }
-      else
-      {
-        // Listen for time pings from other nodes
-      }
-
-      if (statusflags.gsmNotSent && HAS_GSM == true)
-      {
-        // Read saved data from EEPROM and send using GSM module
-        statusflags.gsmNotSent = false;
-      }
-      break;
-    case SupplyIsGood:
+      digitalWrite(EN_LORA_PIN, HIGH);
+      delay(200); // let the module turne on
+      if (!manager.init())
+        Serial.println("RFM96 init failed");
+      // Defaults after init are 434.0MHz, 0.05MHz AFC pull-in, modulation FSK_Rb2_4Fd36
+      driver.setFrequency(radioFrequency);
+      //manager.setTxPower(20,false);
       if (statusflags.connectet)
       {
         broardcastTime();
@@ -245,19 +237,69 @@ void runOnTimerInterrupt()
       {
         rtc.disableAlarmInterrupt();
         rtc.disableCountdownTimer();
-        while(!statusflags.connectet)
+        while (!statusflags.connectet)
         {
           listenForTime();
         }
         rtc.enableAlarmInterrupt();
         rtc.enableCountdownTimer();
       }
+      digitalWrite(EN_LORA_PIN, LOW);
+
+      if (statusflags.gsmNotSent && HAS_GSM == true)
+      {
+        // Read saved data from EEPROM and send using GSM module
+        statusflags.gsmNotSent = false;
+      }
+      break;
+    case SupplyIsGood:
+      digitalWrite(EN_LORA_PIN, HIGH);
+      delay(200); // let the module turne on
+      if (!manager.init())
+        Serial.println("RFM96 init failed");
+      // Defaults after init are 434.0MHz, 0.05MHz AFC pull-in, modulation FSK_Rb2_4Fd36
+      driver.setFrequency(radioFrequency);
+      //manager.setTxPower(20,false);
+      if (statusflags.connectet)
+      {
+        broardcastTime();
+      }
+      else
+      {
+        rtc.disableAlarmInterrupt();
+        rtc.disableCountdownTimer();
+        while (!statusflags.connectet)
+        {
+          listenForTime();
+        }
+        rtc.enableAlarmInterrupt();
+        rtc.enableCountdownTimer();
+      }
+      digitalWrite(EN_LORA_PIN, LOW);
       break;
     case SupplyIsModerate:
       if (!statusflags.connectet)
       {
+        digitalWrite(EN_LORA_PIN, HIGH);
+        delay(200); // let the module turne on
+        if (!manager.init())
+          Serial.println("RFM96 init failed");
+        // Defaults after init are 434.0MHz, 0.05MHz AFC pull-in, modulation FSK_Rb2_4Fd36
+        driver.setFrequency(radioFrequency);
+        //manager.setTxPower(20,false);
+
         // Listen for time pings from other nodes
+        rtc.disableAlarmInterrupt();
+        rtc.disableCountdownTimer();
+        while (!statusflags.connectet)
+        {
+          listenForTime();
+        }
+        rtc.enableAlarmInterrupt();
+        rtc.enableCountdownTimer();
+        digitalWrite(EN_LORA_PIN, LOW);
       }
+
       break;
     case SupplyIsBad:
       // maybe either make shure to check status more often to cach when things go bad,
@@ -370,7 +412,7 @@ void listenForMessages()
 void sendMessage(CayenneLPP *_lpp, uint8_t adr)
 {
   //Serial.println("Sending to NODE3_ADDRESS"); // debugging
-  if (0 < _lpp->getSize) // is the buffer empty?
+  if (0 < _lpp->getSize()) // is the buffer empty?
   {                      // if not send data
     // Send a message
     // A route to the destination will be automatically discovered.
@@ -429,8 +471,6 @@ void listenForTime()
       rtc.setHours(messageBuf[2]);
       statusflags.connectet = true;
     }
-    
-
   }
   return;
 }

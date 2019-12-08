@@ -57,9 +57,9 @@ void updateSupplyStatus(statusflagsType *p,RV3028 *_rtc)
         p->statusFlag = SupplyIsTerrible;
     }
     _rtc->updateTime();
-    p->tsSeconds = _rtc->getSeconds;
-    p->tsMinutes = _rtc->getMinutes;
-    p->tsHours = _rtc->getHours;
+    p->tsSeconds = _rtc->getSeconds();
+    p->tsMinutes = _rtc->getMinutes();
+    p->tsHours = _rtc->getHours();
     
     return;
 }
