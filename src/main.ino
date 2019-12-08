@@ -1,3 +1,4 @@
+
 #include "General_Purpose_Functions.h"
 #include "RV-3028-C7.h"
 #include <Wire.h>
@@ -19,12 +20,9 @@ JsonArray root = jsonBuffer.to<JsonArray>();
 RV3028 rtc;
 
 // Defines
-#define RTC_INTERRUPT_PIN 10
-#define EN_LORA_PIN 3
 
-// The number of times the the processer has to have been woken before
-// checking the status af VCC and Unregulatet VCC
-#define WAKE_TIMES_BEFORE_STATUS_CHECK 5 //Might need a new name
+
+
 // defines the time and date to be set
 #define SECONDS 0
 #define MINUTES 0
@@ -63,23 +61,17 @@ If you want to set a weekday alarm (setWeekdayAlarm_not_Date = true), set 'date_
  ****************/
 #define TIMER_REPEAT true // Repeat mode true or false
 
-#define HAS_GSM false // set false if the specific node to be set up does not have a GSM module
+
 
 countdownTimerType timerSettings = {TIMER_TIME, TIMER_UNIT, TIMER_REPEAT};
-countdownTimerType windowTimerSettings = {WINDOW_DURATION, UNIT_SECOND, false};
 statusflagsType statusflags;
 double vcc;
 volatile bool rtcINT = false;
-const float radioFrequency = 868.0;
 
 #if HAS_GSM == true
-struct bufStruct
-{
-  uint8_t buf[RH_MESH_MAX_MESSAGE_LEN * 20];
-  uint16_t curser;
-} dataBuf;
+bufStruct dataBuf;
 #endif
-
+uint8_t messageBuf[RH_MESH_MAX_MESSAGE_LEN];
 //RTC interrupt service routine
 void rtcISR()
 {
@@ -109,15 +101,6 @@ void setup()
   rtc.clearInterrupts();
   attachInterrupt(digitalPinToInterrupt(RTC_INTERRUPT_PIN), rtcISR, FALLING);
 
-  Serial.println("Routing table before EEPROM read: ");
-  manager.printRoutingTable();
-
-  manager.clearRoutingTable();                      // clear routing table
-  getRoutingTable(routingTableFirstAddr, &manager); // get routing table from EEPROM mem
-
-  Serial.println("Routing table after EEPROM read: ");
-  manager.printRoutingTable();
-
   lpp.reset();
   updateSupplyStatus(&statusflags,&rtc);
   statusflags.justRestartet = true; // Indikate that we just restartet
@@ -130,8 +113,13 @@ void loop()
     LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);
   }
   rtcIntHandler();
-  runOnTimerInterrupt();
-  runOnAlarmInterrupt();
+ #if HAS_GSM == true
+  runOnTimerInterrupt(messageBuf,&dataBuf,&rtc,&manager,&driver,&statusflags,&timerSettings);
+  runOnAlarmInterrupt(messageBuf,&dataBuf,&rtc,&manager,&driver,&statusflags);
+#else
+  runOnTimerInterrupt(&lpp,messageBuf,&rtc,&manager,&driver,&statusflags,&timerSettings);
+  runOnAlarmInterrupt(&lpp,messageBuf,&rtc,&manager,&driver,&statusflags);
+#endif
   if(!statusflags.alarmINT && !statusflags.timerINT)
   {
     statusflags.gotosleep = true; 
@@ -194,283 +182,3 @@ void rtcIntHandler()
       }  */
 }
 
-void runOnTimerInterrupt()
-{
-  if (!statusflags.timerINT)
-    return;
-  //only run once per timer interrupt
-  statusflags.timerINT = false;
-  // see if the timer time is very low, if it is, then do not count them as waking
-  if ((20 <= timerSettings.time && UNIT_SECOND == timerSettings.unit) || (10000 <= timerSettings.time && UNIT_M_SECOND == timerSettings.unit))
-  {
-    /****************************************
-     * Check status of VCC and UnregulatetVCC
-     * if it is time for this
-     ***************************************/
-    if (WAKE_TIMES_BEFORE_STATUS_CHECK <= statusflags.timesAwake)
-    {
-
-      updateSupplyStatus(&statusflags,&rtc);
-      statusflags.timesAwake = 0;
-    }
-    else
-    {
-      statusflags.timesAwake++;
-    }
-
-    switch (statusflags.statusFlag)
-    {
-    case SupplyIsExcellent:
-
-      digitalWrite(EN_LORA_PIN, HIGH);
-      delay(200); // let the module turne on
-      if (!manager.init())
-        Serial.println("RFM96 init failed");
-      // Defaults after init are 434.0MHz, 0.05MHz AFC pull-in, modulation FSK_Rb2_4Fd36
-      driver.setFrequency(radioFrequency);
-      //manager.setTxPower(20,false);
-      if (statusflags.connectet)
-      {
-        broardcastTime();
-      }
-      else
-      {
-        rtc.disableAlarmInterrupt();
-        rtc.disableCountdownTimer();
-        while (!statusflags.connectet)
-        {
-          listenForTime();
-        }
-        rtc.enableAlarmInterrupt();
-        rtc.enableCountdownTimer();
-      }
-      digitalWrite(EN_LORA_PIN, LOW);
-
-      if (statusflags.gsmNotSent && HAS_GSM == true)
-      {
-        // Read saved data from EEPROM and send using GSM module
-        statusflags.gsmNotSent = false;
-      }
-      break;
-    case SupplyIsGood:
-      digitalWrite(EN_LORA_PIN, HIGH);
-      delay(200); // let the module turne on
-      if (!manager.init())
-        Serial.println("RFM96 init failed");
-      // Defaults after init are 434.0MHz, 0.05MHz AFC pull-in, modulation FSK_Rb2_4Fd36
-      driver.setFrequency(radioFrequency);
-      //manager.setTxPower(20,false);
-      if (statusflags.connectet)
-      {
-        broardcastTime();
-      }
-      else
-      {
-        rtc.disableAlarmInterrupt();
-        rtc.disableCountdownTimer();
-        while (!statusflags.connectet)
-        {
-          listenForTime();
-        }
-        rtc.enableAlarmInterrupt();
-        rtc.enableCountdownTimer();
-      }
-      digitalWrite(EN_LORA_PIN, LOW);
-      break;
-    case SupplyIsModerate:
-      if (!statusflags.connectet)
-      {
-        digitalWrite(EN_LORA_PIN, HIGH);
-        delay(200); // let the module turne on
-        if (!manager.init())
-          Serial.println("RFM96 init failed");
-        // Defaults after init are 434.0MHz, 0.05MHz AFC pull-in, modulation FSK_Rb2_4Fd36
-        driver.setFrequency(radioFrequency);
-        //manager.setTxPower(20,false);
-
-        // Listen for time pings from other nodes
-        rtc.disableAlarmInterrupt();
-        rtc.disableCountdownTimer();
-        while (!statusflags.connectet)
-        {
-          listenForTime();
-        }
-        rtc.enableAlarmInterrupt();
-        rtc.enableCountdownTimer();
-        digitalWrite(EN_LORA_PIN, LOW);
-      }
-
-      break;
-    case SupplyIsBad:
-      // maybe either make shure to check status more often to cach when things go bad,
-      // or make shure to wake less often to save on power
-      break;
-    case SupplyIsTerrible:
-      // save unsent data to EEPROM
-      break;
-    default:
-      break;
-    }
-  }
-  return;
-}
-bool runOnce = false;
-void runOnAlarmInterrupt()
-{
-  if (!statusflags.alarmINT)
-    return;
-
-  if (!runOnce)
-  {
-    /**** initialize the LoRa module *****************/
-    digitalWrite(EN_LORA_PIN, HIGH); // Enable the module
-    delay(200);                      // let the module turne on
-    if (!manager.init())
-      Serial.println("RFM96 init failed");
-    // Defaults after init are 434.0MHz, 0.05MHz AFC pull-in, modulation FSK_Rb2_4Fd36
-    driver.setFrequency(radioFrequency);
-    //manager.setTxPower(20,false);
-
-    manager.clearRoutingTable();                      // clear routing table
-    getRoutingTable(routingTableFirstAddr, &manager); // get routing table from EEPROM mem
-    // start the countdown timer to set the syncronisation window
-    runOnce = true;
-    rtc.setCountdownTimer(windowTimerSettings.time, windowTimerSettings.unit, windowTimerSettings.repatMode);
-    rtc.enableCountdownTimer();
-  }
-  // Check if this is first time after startup we are transmitting
-  if (statusflags.justRestartet)
-  {
-    /*** check if data is saved in EEPROM
-     * {
-     *    // if it is read it to the transmit buffer
-     *    // delete it from EEPROM
-     * }else{
-     *    // Nothing
-     * }
-     * 
-     * */
-    statusflags.justRestartet = false; // Now we dont need to know
-  }
-//check to see if this node has a GSM module, this changes how the node behaves
-#if HAS_GSM == false
-  sendMessage(&lpp, NODE3_ADDRESS); // NEEDS ANOTHER WAY TO DETERMINE end reserver
-#endif
-  listenForMessages();
-  if (statusflags.windowEnd)
-  {
-    digitalWrite(EN_LORA_PIN, LOW);
-    statusflags.alarmINT = false; // end this process
-    statusflags.windowEnd = false;
-    runOnce = false; // reset runonce
-    #if HAS_GSM == true
-    if(SupplyIsExcellent == statusflags.statusFlag)
-    {
-      // send data via GSM
-      uint16_t len = dataBuf.curser;
-      for (int i = len - 1; i >= 0; i--)
-      {
-        dataBuf.buf[dataBuf.curser] = 0;
-        dataBuf.curser--;
-      }
-    }
-    else
-    {
-      //save data in EEPROM
-    }
-    #endif
-  }
-}
-
-//Dont put this on the stack:
-uint8_t messageBuf[RH_MESH_MAX_MESSAGE_LEN];
-// Listen for new messages
-void listenForMessages()
-{
-  uint8_t len = sizeof(messageBuf);
-  uint8_t from;
-  if (manager.recvfromAck(messageBuf, &len, &from))
-  {
-    statusflags.connectet = true;
-    /*  for debugging
-    Serial.print("got request from : 0x");
-    Serial.print(from, HEX);
-    Serial.print(": ");
-    Serial.println((char *)messageBuf);
-    */
-#if HAS_GSM == true
-    for (int i = len - 1; i <= len; i++)
-    { // coppy the data from message buffer to the data buffer
-
-      dataBuf.buf[dataBuf.curser] = messageBuf[i];
-      dataBuf.curser++;
-    }
-#endif
-  }
-}
-
-void sendMessage(CayenneLPP *_lpp, uint8_t adr)
-{
-  //Serial.println("Sending to NODE3_ADDRESS"); // debugging
-  if (0 < _lpp->getSize()) // is the buffer empty?
-  {                      // if not send data
-    // Send a message
-    // A route to the destination will be automatically discovered.
-    if (manager.sendtoWait(_lpp->getBuffer(), _lpp->getSize(), adr) == RH_ROUTER_ERROR_NONE)
-    {
-      statusflags.connectet = true; // indicate that the node connectet to the network
-      _lpp->reset();
-      /************************ debugging *****************************
-    // It has been reliably delivered to the next node.
-    // Now wait for a reply from the other node
-    uint8_t len = sizeof(messageBuf);
-    uint8_t from;
-    if (manager.recvfromAckTimeout(messageBuf, &len, 3000, &from))
-    {
-      Serial.print("got reply from : 0x");
-      Serial.print(from, HEX);
-      Serial.print(": ");
-      Serial.println((char *)messageBuf);
-    }
-    else
-    {
-      Serial.println("No reply, are other nodes running?");
-    }
-    ************************************************************/
-    }
-    else
-    {
-      statusflags.connectet = false; // indicate that the node did not connect to the network
-      //Serial.println("sendtoWait failed. Are the intermediate nodes running?"); // debugging
-    }
-  }
-}
-
-void broardcastTime()
-{
-  
-  rtc.updateTime();
-  messageBuf[0] = rtc.getSeconds();
-  messageBuf[1] = rtc.getMinutes();
-  messageBuf[2] = rtc.getHours();
-  uint8_t len = sizeof(messageBuf);
-  manager.sendtoWait(messageBuf, len, RH_BROADCAST_ADDRESS);
-  return;
-}
-
-void listenForTime()
-{
-  uint8_t len = sizeof(messageBuf);
-  uint8_t from;
-  if (manager.recvfromAck(messageBuf, &len, &from))
-  { 
-    if(RH_BROADCAST_ADDRESS == from)
-    {
-      rtc.setSeconds(messageBuf[0]);
-      rtc.setMinutes(messageBuf[1]);
-      rtc.setHours(messageBuf[2]);
-      statusflags.connectet = true;
-    }
-  }
-  return;
-}

@@ -12,11 +12,17 @@
 // Defines
 #define routingTableFirstAddr  0
 
+// pin definitions
+#define RTC_INTERRUPT_PIN 10
+#define EN_LORA_PIN 3
+
 // Define each node address
 #define NODE1_ADDRESS 1
 #define NODE2_ADDRESS 2
 #define NODE3_ADDRESS 3
 #define NODE4_ADDRESS 4
+
+#define HAS_GSM true // set false if the specific node to be set up does not have a GSM module
 
 //#define RH_MESH_MAX_MESSAGE_LEN 50
 #define SENSORCH0 0
@@ -24,6 +30,7 @@
 #define PAYLOADMAXSIZE 51
 #define DYNJSONBUFFERSIZE 4096
 #define STATJSONBUFFERSIZE 512  // use https://arduinojson.org/v5/assistant/ to calculate the proper size
+#define RADIO_FREQUENCY    868.0
 
 //Pin definitions
 #define CAP_MEAS_PIN        A0
@@ -40,6 +47,9 @@
 #define VCC_THRESHHOLD              2000 // 
 
 #define WINDOW_DURATION             20 //
+// The number of times the the processer has to have been woken before
+// checking the status af VCC and Unregulatet VCC
+#define WAKE_TIMES_BEFORE_STATUS_CHECK 5 //Might need a new name
 enum supplyStatusFlag{
     SupplyIsExcellent,
     SupplyIsGood,
@@ -60,6 +70,11 @@ struct statusflagsType{
     uint8_t timesAwake;
     uint8_t tsSeconds, tsMinutes, tsHours;
     
+};
+struct bufStruct
+{
+  uint8_t buf[RH_MESH_MAX_MESSAGE_LEN * 20];
+  uint16_t curser;
 };
 
 //Functions 
@@ -89,5 +104,16 @@ void saveRoutingTable(int row_addr, RHMesh *ptrManager);
 // deletes the saved routing table from EEPROM
 void deleteRoutingTableEEPROM(int row_addr);
 
-
+void listenForTime(uint8_t *buf,RV3028 *_rtc,RHMesh *man,statusflagsType *status);
+void broardcastTime(uint8_t *buf,RV3028 *_rtc,RHMesh *man);
+void sendMessage(CayenneLPP *_lpp, uint8_t adr,RHMesh *man,statusflagsType *status);
+#if HAS_GSM == true
+void listenForMessages(uint8_t *buf,bufStruct *datBuf,RV3028 *_rtc,RHMesh *man,statusflagsType *status);
+void runOnAlarmInterrupt(uint8_t *buf,bufStruct *datBuf,RV3028 *_rtc,RHMesh *man,RH_RF95 *driv,statusflagsType *status);
+void runOnTimerInterrupt(uint8_t *buf,bufStruct *datBuf,RV3028 *_rtc,RHMesh *man,RH_RF95 *driv,statusflagsType *status,countdownTimerType *timSetting);
+#else
+void listenForMessages(uint8_t *buf,RV3028 *_rtc,RHMesh *man,statusflagsType *status);
+void runOnAlarmInterrupt(CayenneLPP *_lpp,uint8_t *buf,RV3028 *_rtc,RHMesh *man,RH_RF95 *driv,statusflagsType *status);
+void runOnTimerInterrupt(CayenneLPP *_lpp,uint8_t *buf,RV3028 *_rtc,RHMesh *man,RH_RF95 *driv,statusflagsType *status,countdownTimerType *timSetting);
+#endif
 #endif // GENERALP_FUNCTION
