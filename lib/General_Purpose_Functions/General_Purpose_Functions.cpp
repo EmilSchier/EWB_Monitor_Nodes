@@ -23,11 +23,11 @@ double measureVCC(bool in_mV)
     double result = (high << 8) | low;
     if (in_mV)
     {
-        result = (1.1 * 1023 * 1000) / result;
+        result = (1.1 * 1023.0 * 1000.0) / result;
     }
     else
     {
-        result = (1.1 * 1023) / result;
+        result = (1.1 * 1023.0) / result;
     }
     ADMUX = adcSettings;
 
@@ -40,10 +40,10 @@ double measureVCC(bool in_mV)
  **************/
 void updateSupplyStatus(supplyStatusStruct *p)
 {
-    
+    analogRead(CAP_MEAS_PIN); // do a garbage read to make shure the users chosen reference is set in the ADMUX register
     p->vSupercap = measureUnregulatetVCC();
-    delay(100);
     p->vcc = measureVCC(true);
+    delay(300);
     
     if(VCAP_THRESHHOLD_EXCELLENT <= p->vSupercap){
         p->statusFlag = SupplyIsExcellent;
@@ -65,22 +65,25 @@ void updateSupplyStatus(supplyStatusStruct *p)
 bool pinSetOutput = false;
 uint16_t measureUnregulatetVCC()
 {
-    byte adcSettings = ADMUX; // copy ADC settings so as to reinsert them later // may have to be removed
-    if(!pinSetOutput){
+     byte adcSettings = ADMUX; // copy ADC settings so as to reinsert them later // may have to be removed
+    if(!pinSetOutput){ // the first time this is called make shure to set the pin as an output
         pinMode(CAP_MEAS_ON_OFF_PIN,OUTPUT);
         pinSetOutput = true;
     }
     analogReference(INTERNAL1V1);
-    double result = analogRead(CAP_MEAS_PIN);
+    double result = analogRead(CAP_MEAS_PIN); // Do a garbage reading to make the change of reference happen 
+    delay(100);// wait for reference to settle
+    result =  analogRead(CAP_MEAS_PIN); // useful read
 
-    result = (1100/1024)*result; 
-    //result = (result*(CAP_MEAS_R1+CAP_MEAS_R2))/CAP_MEAS_R2;
+    result = (1100.0/1023.0)*result; 
+    result = (result*(CAP_MEAS_R1+CAP_MEAS_R2))/CAP_MEAS_R2;
 
-    ADMUX = adcSettings; // may have to be removed
+    ADMUX = adcSettings; // Reinsert settings
     adcSettings = (adcSettings & 0b11000000)>>6; // make the adc settings into the analog reference mode;
     // set the analog reference to what it was before, this has to be done in case another setting is used
     // somewhere else and because of the way arduino does analog reads.
-    analogReference(adcSettings);
+    analogReference(adcSettings); 
+    delay(100); // delay to make the reference settle again, in case an analog read is some of the nect code to be run
     return result;
 }
 

@@ -47,8 +47,8 @@ enum supplyStatusFlag{
 
 typedef struct supplyStatusStruct
 {
-    uint16_t vcc;
-    uint16_t vSupercap;
+    double vcc;
+    double vSupercap;
     enum supplyStatusFlag statusFlag;
 };
 
