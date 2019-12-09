@@ -7,7 +7,7 @@
 #include <LowPower.h>
 
 //RH_RF95/RFM96 driver;
-RH_RF95 driver(53, 2); // pins for Mega
+RH_RF95 driver(4, 2); // pins for ATmega1284
 
 // Class to manage message delivery and receipt, using the driver declared above
 RHMesh manager(driver, NODE1_ADDRESS);
@@ -20,10 +20,8 @@ JsonArray root = jsonBuffer.to<JsonArray>();
 RV3028 rtc;
 
 // Defines
-
-
-
 // defines the time and date to be set
+#ifdef DEBUGMODE
 #define SECONDS 0
 #define MINUTES 0
 #define HOURS 12
@@ -31,6 +29,7 @@ RV3028 rtc;
 #define DATE 1
 #define MONTH 1
 #define YEAR 2019
+#endif
 
 /*********************************
 Set the alarm mode in the following way:
@@ -42,16 +41,16 @@ Set the alarm mode in the following way:
 5: When hours match (once per day)
 6: When minutes match (once per hour)
 7: All disabled � Default value
-If you want to set a weekday alarm (setWeekdayAlarm_not_Date = true), set 'date_or_weekday' from 0 (Sunday) to 6 (Saturday)
+If you want to set a weekday alarm (ALARM_NOT_DATES = true), set 'ALARM_DATE' from 0 (Sunday) to 6 (Saturday)
 ********************************/
-#define ALARM_MINUTES 0
+#define ALARM_MINUTES 2
 #define ALARM_HOURS 12
 #define ALARM_WEEKDAY 0
 #define ALARM_DATE 1
 #define ALARM_NOT_DATES false
-#define ALARM_MODE 7 //disabled
+#define ALARM_MODE 4 //disabled
 
-#define TIMER_TIME 0 // the time, 0 = dissabled
+#define TIMER_TIME 15 // the time, 0 = dissabled
 #define TIMER_UNIT UNIT_SECOND
 /*****************
  Determines the unit used for the countdown time
@@ -60,8 +59,6 @@ If you want to set a weekday alarm (setWeekdayAlarm_not_Date = true), set 'date_
  UNIT_M_SECOND  =   milliseconds
  ****************/
 #define TIMER_REPEAT true // Repeat mode true or false
-
-
 
 countdownTimerType timerSettings = {TIMER_TIME, TIMER_UNIT, TIMER_REPEAT};
 statusflagsType statusflags;
@@ -90,19 +87,19 @@ void setup()
 
   // setup RTC
   rtc.begin();
-  if (rtc.setTime(SECONDS, MINUTES, HOURS, WEEKDAY, DATE, MONTH, YEAR))
-  {
-    Serial.println("time set");
-  }
+#ifdef DEBUGMODE
+rtc.setTime(SECONDS,MINUTES,HOURS,WEEKDAY,DATE,MONTH,YEAR);
+#endif
+
   rtc.enableAlarmInterrupt(ALARM_MINUTES, ALARM_HOURS, ALARM_HOURS, ALARM_NOT_DATES, ALARM_MODE);
   rtc.setCountdownTimer(timerSettings.time, timerSettings.unit, timerSettings.repatMode);
-  //rtc.enableCountdownTimer(); // uncomment to enable the countdown timer
-  rtc.disableCountdownTimer(); // Uncomment to disable the countdown timer
+  rtc.enableCountdownTimer(); // uncomment to enable the countdown timer
+  //rtc.disableCountdownTimer(); // Uncomment to disable the countdown timer
   rtc.clearInterrupts();
   attachInterrupt(digitalPinToInterrupt(RTC_INTERRUPT_PIN), rtcISR, FALLING);
 
   lpp.reset();
-  updateSupplyStatus(&statusflags,&rtc);
+  updateSupplyStatus(&statusflags, &rtc);
   statusflags.justRestartet = true; // Indikate that we just restartet
 }
 
@@ -110,19 +107,25 @@ void loop()
 {
   if (statusflags.gotosleep)
   {
+#ifdef DEBUGMODE
+    Serial.println("Going to sleep");
+    Serial.flush();
+#endif
     LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);
+    statusflags.gotosleep = false;
   }
   rtcIntHandler();
- #if HAS_GSM == true
-  runOnTimerInterrupt(messageBuf,&dataBuf,&rtc,&manager,&driver,&statusflags,&timerSettings);
-  runOnAlarmInterrupt(messageBuf,&dataBuf,&rtc,&manager,&driver,&statusflags);
+#if HAS_GSM == true
+  runOnTimerInterrupt(messageBuf, &dataBuf, &rtc, &manager, &driver, &statusflags, &timerSettings);
+  runOnAlarmInterrupt(messageBuf, &dataBuf, &rtc, &manager, &driver, &statusflags, &timerSettings);
 #else
-  runOnTimerInterrupt(&lpp,messageBuf,&rtc,&manager,&driver,&statusflags,&timerSettings);
-  runOnAlarmInterrupt(&lpp,messageBuf,&rtc,&manager,&driver,&statusflags);
+  runOnTimerInterrupt(&lpp, messageBuf, &rtc, &manager, &driver, &statusflags, &timerSettings);
+  runOnAlarmInterrupt(&lpp, messageBuf, &rtc, &manager, &driver, &statusflags, &timerSettings);
 #endif
-  if(!statusflags.alarmINT && !statusflags.timerINT)
+  if (!statusflags.alarmINT && !statusflags.timerINT)
   {
-    statusflags.gotosleep = true; 
+
+    statusflags.gotosleep = true;
   }
 }
 
@@ -144,26 +147,40 @@ void rtcIntHandler()
     {
       // code to do if this flag is high
     } */
+  if ((flags & _BV(STATUS_TF))) // Timer interrupt
+  {
+#ifdef DEBUGMODE
+    Serial.println("Timer Int");
+#endif
+    // code to do if this flag is high
+    if (statusflags.alarmINT && !statusflags.windowEnd)
+    {
+      statusflags.windowEnd = true;
+#ifdef DEBUGMODE
+      Serial.println("End of communications window In interrupt");
+#endif
+    }
+    else
+    { // dont do this when the timer signalts the end ofthe alarm
+      if (!statusflags.timerINT)
+        statusflags.timerINT = true; // Indicade that this interrupt has happened
+      /****************************************
+     * Tasks where timing is important
+     * For example making a measurement at a specific time ore with a specific time differance
+     ***************************************/
+    }
+  }
   if ((flags & _BV(STATUS_AF))) // Alarm interrupt
   {
+#ifdef DEBUGMODE
+    Serial.println("Alarm Int");
+#endif
     // code to do if this flag is high
     if (!statusflags.alarmINT)
       ;
     statusflags.alarmINT = true; // Indicade that this interrupt has happened
   }
-  if ((flags & _BV(STATUS_TF))) // Timer interrupt
-  {
-    // code to do if this flag is high
-    if (!statusflags.timerINT)
-      statusflags.timerINT = true; // Indicade that this interrupt has happened
-    if (statusflags.alarmINT)
-    {
-    }
-    /****************************************
-     * Tasks where timing is important
-     * For example making a measurement at a specific time ore with a specific time differance
-     ***************************************/
-  }
+  
   /*    if ((flags & _BV(STATUS_UF)))
       {
         // code to do if this flag is high
@@ -181,4 +198,3 @@ void rtcIntHandler()
         // code to do if this flag is high
       }  */
 }
-

@@ -9,6 +9,9 @@
 #include <CayenneLPP.h>
 #include "RV-3028-C7.h"
 
+#define DEBUGMODE // defien this to enter debug mode with seriel readouts
+#define HAS_GSM false // set false if the specific node to be set up does not have a GSM module
+
 // Defines
 #define routingTableFirstAddr  0
 
@@ -22,7 +25,7 @@
 #define NODE3_ADDRESS 3
 #define NODE4_ADDRESS 4
 
-#define HAS_GSM true // set false if the specific node to be set up does not have a GSM module
+
 
 //#define RH_MESH_MAX_MESSAGE_LEN 50
 #define SENSORCH0 0
@@ -37,8 +40,8 @@
 #define CAP_MEAS_ON_OFF_PIN 25
 
 // Definitions for Supply status function
-#define CAP_MEAS_R1                 10000 // R1 of the voltage devider for measuring Capacitor voltage
-#define CAP_MEAS_R2                 2325 // R2 of the voltage devider for measuring Capacitor voltage
+#define CAP_MEAS_R1                 9802 // R1 of the voltage devider for measuring Capacitor voltage
+#define CAP_MEAS_R2                 2390 // R2 of the voltage devider for measuring Capacitor voltage
 #define VCAP_THRESHHOLD_EXCELLENT   5000 // 
 #define VCAP_THRESHHOLD_GOOD        4700 //
 #define VCAP_THRESHHOLD_MODERATE    4400 //
@@ -46,7 +49,7 @@
 #define VCAP_THRESHHOLD_TERRiBLE    3500 //
 #define VCC_THRESHHOLD              2000 // 
 
-#define WINDOW_DURATION             20 //
+#define WINDOW_DURATION             10 //
 // The number of times the the processer has to have been woken before
 // checking the status af VCC and Unregulatet VCC
 #define WAKE_TIMES_BEFORE_STATUS_CHECK 5 //Might need a new name
@@ -109,11 +112,11 @@ void broardcastTime(uint8_t *buf,RV3028 *_rtc,RHMesh *man);
 void sendMessage(CayenneLPP *_lpp, uint8_t adr,RHMesh *man,statusflagsType *status);
 #if HAS_GSM == true
 void listenForMessages(uint8_t *buf,bufStruct *datBuf,RV3028 *_rtc,RHMesh *man,statusflagsType *status);
-void runOnAlarmInterrupt(uint8_t *buf,bufStruct *datBuf,RV3028 *_rtc,RHMesh *man,RH_RF95 *driv,statusflagsType *status);
+void runOnAlarmInterrupt(uint8_t *buf,bufStruct *datBuf,RV3028 *_rtc,RHMesh *man,RH_RF95 *driv,statusflagsType *status,countdownTimerType *timSettings);
 void runOnTimerInterrupt(uint8_t *buf,bufStruct *datBuf,RV3028 *_rtc,RHMesh *man,RH_RF95 *driv,statusflagsType *status,countdownTimerType *timSetting);
 #else
 void listenForMessages(uint8_t *buf,RV3028 *_rtc,RHMesh *man,statusflagsType *status);
-void runOnAlarmInterrupt(CayenneLPP *_lpp,uint8_t *buf,RV3028 *_rtc,RHMesh *man,RH_RF95 *driv,statusflagsType *status);
+void runOnAlarmInterrupt(CayenneLPP *_lpp,uint8_t *buf,RV3028 *_rtc,RHMesh *man,RH_RF95 *driv,statusflagsType *status,countdownTimerType *timSettings);
 void runOnTimerInterrupt(CayenneLPP *_lpp,uint8_t *buf,RV3028 *_rtc,RHMesh *man,RH_RF95 *driv,statusflagsType *status,countdownTimerType *timSetting);
 #endif
 #endif // GENERALP_FUNCTION
