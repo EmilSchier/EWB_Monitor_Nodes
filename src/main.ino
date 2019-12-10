@@ -128,9 +128,8 @@ void loop() {
   sendMessageTest(runMessageTest);
   runMessageTest = false; //only run the message test once
   listenForMessages(false);
-  
-  //sendGSMData(lpp.getBuffer(),lpp.getSize());
 
+  // sendGSMData(lpp.getBuffer(),lpp.getSize());
 }
 
 // Listen for new messages

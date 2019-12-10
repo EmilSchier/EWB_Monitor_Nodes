@@ -151,7 +151,8 @@ void deleteRoutingTableEEPROM(int row_addr)
 
 // Function sends 
 void sendGSMData(const uint8_t *payload, uint8_t payloadSize) {
-
+  String _buffer; 
+  
   // Software serial object to communicate with SIM800L
   SoftwareSerial mySerial(TXSOFTSERIAL, RXSOFTSERIAL);
 
@@ -162,8 +163,6 @@ void sendGSMData(const uint8_t *payload, uint8_t payloadSize) {
   delay(1000);  // It takes time to begin serial
   
   //mySerial.println("AT+IPR=115200"); // Save fixed baud on non volatile memory. SIM800L will now give 'RDY' when initialised on start up. Can be used instead of delay. 
-  //mySerial.println("AT");  //Handshake
-  //updateSerial(mySerial);
 
   // Text mode:
   mySerial.println("AT+CMGF=1"); // Configuring TEXT mode
@@ -173,9 +172,12 @@ void sendGSMData(const uint8_t *payload, uint8_t payloadSize) {
   mySerial.print(PHONENUMBER);
   mySerial.println("\"");
   updateSerial(mySerial);
-  //lpp.decode(lpp.getBuffer(),lpp.getSize(),root);  // Decodes lpp buffer and saves it in the reserved memory 'JsonArray root'. 
-  //serializeJsonPretty(root,mySerial);  // Serializes/creates a JSON document with spaces and line-breaks between values.
-  mySerial.write(payload, sizeof(payloadSize)); // Message text content. Maximum of 160 characters. ÅÆØ and other special characters will not work without a different encoding
+  for (size_t i = 0; i < payloadSize; i++)
+  {
+    _buffer = String(_buffer + *(payload + i));  // Message content to mySerial. 
+  }
+  mySerial.print(_buffer);
+  updateSerial(mySerial); 
 
   // PDU mode (binary mode - not implemented)
   // Reference: https://www.developershome.com/sms/cmgsCommand6.asp
