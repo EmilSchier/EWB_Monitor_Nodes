@@ -1,8 +1,23 @@
+/* This sketch is used to test the transmission time [ms] of sending a message including receiving the acknowledgement from the destination node.
+ * 
+ * Please correct: 
+ * - Node: NODE2_ADDRESS in RHMesh manager(driver, NODE2_ADDRESS) 
+ * - Dest: NODE1_ADDRESS in the manager.sendtoWait command in sendMessage function. 
+ * The addresses must be unique for the used nodes. 
+ * 
+ * LoRa RFM95/96 configurations are set by setting one of the pins PC4 to PC7 high. 
+ * PC4: Bw500Cr45Sf128 (transmission every 15 sec)
+ * PC5: Bw125Cr45Sf128 (transmission every 15 sec)
+ * PC6: Bw31_25Cr48Sf512 (transmission every 30 sec)
+ * PC7: Bw125Cr48Sf4096 (transmission every 60 sec)
+ * 
+ * Results are printed to the serial port. 
+ */ 
+
 #include "General_Purpose_Functions.h"
 #include <Wire.h>
 #include <SPI.h>
 #include "RV-3028-C7.h"
-#include <EEPROM.h>
 
 //RH_RF95/RFM96 driver;
 RH_RF95 driver(4,2);   // pins for uC board
