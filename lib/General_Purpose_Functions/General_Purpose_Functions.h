@@ -10,7 +10,7 @@
 #include "RV-3028-C7.h"
 
 #define DEBUGMODE // defien this to enter debug mode with seriel readouts
-#define HAS_GSM false // set false if the specific node to be set up does not have a GSM module
+#define HAS_GSM true // set false if the specific node to be set up does not have a GSM module
 
 // Defines
 #define routingTableFirstAddr  0
@@ -50,6 +50,7 @@
 #define VCC_THRESHHOLD              2000 // 
 
 #define WINDOW_DURATION             10 //
+#define SEND_TRIES                  3 // the numpber of times it is atemptet tosendt the message if at first it does not succed
 // The number of times the the processer has to have been woken before
 // checking the status af VCC and Unregulatet VCC
 #define WAKE_TIMES_BEFORE_STATUS_CHECK 5 //Might need a new name
@@ -63,6 +64,8 @@ enum supplyStatusFlag{
 
 struct statusflagsType{
     bool connectet;
+    bool recievedmsg;
+    bool recievedAck;
     bool gsmNotSent;
     bool alarmINT, timerINT,windowEnd;
     bool gotosleep;

@@ -41,7 +41,7 @@ double measureVCC(bool in_mV)
 void updateSupplyStatus(statusflagsType *p, RV3028 *_rtc)
 {
     analogRead(CAP_MEAS_PIN); // do a garbage read to make shure the users chosen reference is set in the ADMUX register
-    p->vSupercap = measureUnregulatetVCC();
+    p->vSupercap = /*measureUnregulatetVCC()*/  5300;// done for testing pourposes!
     p->vcc = measureVCC(true);
     delay(300);
 
@@ -230,16 +230,19 @@ void listenForTime(uint8_t *buf, RV3028 *_rtc, RHMesh *man, statusflagsType *sta
 #ifdef DEBUGMODE
         Serial.println("Recieved broadcast");
 #endif
-        if (RH_BROADCAST_ADDRESS == from)
-        {
+
 #ifdef DEBUGMODE
-            Serial.println("recieved time");
+        Serial.println("recieved time");
+        Serial.print(buf[2]);
+        Serial.print(":");
+        Serial.print(buf[1]);
+        Serial.print(":");
+        Serial.println(buf[0]);
 #endif
-            _rtc->setSeconds(buf[0]);
-            _rtc->setMinutes(buf[1]);
-            _rtc->setHours(buf[2]);
-            status->connectet = true;
-        }
+        _rtc->setSeconds(buf[0]);
+        _rtc->setMinutes(buf[1]);
+        _rtc->setHours(buf[2]);
+        status->connectet = true;
     }
     return;
 }
@@ -250,8 +253,16 @@ void broardcastTime(uint8_t *buf, RV3028 *_rtc, RHMesh *man)
     buf[0] = _rtc->getSeconds();
     buf[1] = _rtc->getMinutes();
     buf[2] = _rtc->getHours();
-    uint8_t len = sizeof(buf);
+    uint8_t len = 3;
     man->sendtoWait(buf, len, RH_BROADCAST_ADDRESS);
+#ifdef DEBUGMODE
+        Serial.println("sending time: ");
+        Serial.print(buf[2]);
+        Serial.print(":");
+        Serial.print(buf[1]);
+        Serial.print(":");
+        Serial.println(buf[0]);
+#endif
     return;
 }
 #ifdef DEBUGMODE
@@ -270,7 +281,7 @@ void sendMessage(CayenneLPP *_lpp, uint8_t adr, RHMesh *man, statusflagsType *st
         // A route to the destination will be automatically discovered.
         if (man->sendtoWait(_lpp->getBuffer(), _lpp->getSize(), adr) == RH_ROUTER_ERROR_NONE)
         {
-            status->connectet = true; // indicate that the node connectet to the network
+            status->recievedAck = true; // indicate that the node connectet to the network
             _lpp->reset();
 #ifdef DEBUGMODE
             // It has been reliably delivered to the next node.
@@ -293,7 +304,6 @@ void sendMessage(CayenneLPP *_lpp, uint8_t adr, RHMesh *man, statusflagsType *st
         }
         else
         {
-            status->connectet = false; // indicate that the node did not connect to the network
 #ifdef DEBUGMODE
             Serial.println("sendtoWait failed. Are the intermediate nodes running?");
 #endif
@@ -312,7 +322,7 @@ void listenForMessages(uint8_t *buf, RV3028 *_rtc, RHMesh *man, statusflagsType 
     uint8_t from;
     if (man->recvfromAck(buf, &len, &from))
     {
-        status->connectet = true;
+        status->recievedmsg = true;
 #ifdef DEBUGMODE
         Serial.print("got request from : 0x");
         Serial.print(from, HEX);
@@ -384,7 +394,18 @@ void runOnAlarmInterrupt(CayenneLPP *_lpp, uint8_t *buf, RV3028 *_rtc, RHMesh *m
     }
 //check to see if this node has a GSM module, this changes how the node behaves
 #if HAS_GSM == false
-    sendMessage(_lpp, NODE3_ADDRESS, man, status); // NEEDS ANOTHER WAY TO DETERMINE end reserver
+    for (int i = SEND_TRIES - 1; i >= 0; i--)
+    {
+        sendMessage(_lpp, NODE3_ADDRESS, man, status); // NEEDS ANOTHER WAY TO DETERMINE end reserver
+        if(status->recievedAck)
+        {
+            break;
+        }
+        else 
+        {
+            delay(100); // Wait for a small time
+        }
+    }
     listenForTime(buf, _rtc, man, status);
 #else
     listenForMessages(buf, datBuf, _rtc, man, status);
@@ -394,6 +415,16 @@ void runOnAlarmInterrupt(CayenneLPP *_lpp, uint8_t *buf, RV3028 *_rtc, RHMesh *m
 #ifdef DEBUGMODE
         Serial.println("Ending kommunications window");
 #endif
+        if(status->recievedmsg || status->recievedAck)
+        {
+            status->connectet = true;
+            status->recievedmsg = false;
+            status->recievedAck = false;
+        }
+        else
+        {
+            status->connectet = false;
+        }
         digitalWrite(EN_LORA_PIN, LOW);
         status->alarmINT = false; // end this process
         status->windowEnd = false;
