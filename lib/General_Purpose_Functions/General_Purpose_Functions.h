@@ -10,7 +10,7 @@
 #include "RV-3028-C7.h"
 
 #define DEBUGMODE // defien this to enter debug mode with seriel readouts
-#define HAS_GSM true // set false if the specific node to be set up does not have a GSM module
+#define HAS_GSM false // set false if the specific node to be set up does not have a GSM module
 
 // Defines
 #define routingTableFirstAddr  0
@@ -75,7 +75,7 @@ struct statusflagsType{
     enum supplyStatusFlag statusFlag;
     uint8_t timesAwake;
     uint8_t tsSeconds, tsMinutes, tsHours;
-    
+    uint8_t gsmNode;
 };
 struct bufStruct
 {
@@ -110,16 +110,17 @@ void saveRoutingTable(int row_addr, RHMesh *ptrManager);
 // deletes the saved routing table from EEPROM
 void deleteRoutingTableEEPROM(int row_addr);
 
-void listenForTime(uint8_t *buf,RV3028 *_rtc,RHMesh *man,statusflagsType *status);
-void broardcastTime(uint8_t *buf,RV3028 *_rtc,RHMesh *man);
+void listenForTime(RV3028 *_rtc,RHMesh *man,statusflagsType *status);
+void broardcastTime(RV3028 *_rtc,RHMesh *man);
 void sendMessage(CayenneLPP *_lpp, uint8_t adr,RHMesh *man,statusflagsType *status);
 #if HAS_GSM == true
-void listenForMessages(uint8_t *buf,bufStruct *datBuf,RV3028 *_rtc,RHMesh *man,statusflagsType *status);
-void runOnAlarmInterrupt(uint8_t *buf,bufStruct *datBuf,RV3028 *_rtc,RHMesh *man,RH_RF95 *driv,statusflagsType *status,countdownTimerType *timSettings);
-void runOnTimerInterrupt(uint8_t *buf,bufStruct *datBuf,RV3028 *_rtc,RHMesh *man,RH_RF95 *driv,statusflagsType *status,countdownTimerType *timSetting);
+void listenForMessages(RV3028 *_rtc,RHMesh *man,statusflagsType *status);
+void runOnAlarmInterrupt(RV3028 *_rtc,RHMesh *man,RH_RF95 *driv,statusflagsType *status,countdownTimerType *timSettings);
+void runOnTimerInterrupt(RV3028 *_rtc,RHMesh *man,RH_RF95 *driv,statusflagsType *status,countdownTimerType *timSetting);
 #else
-void listenForMessages(uint8_t *buf,RV3028 *_rtc,RHMesh *man,statusflagsType *status);
-void runOnAlarmInterrupt(CayenneLPP *_lpp,uint8_t *buf,RV3028 *_rtc,RHMesh *man,RH_RF95 *driv,statusflagsType *status,countdownTimerType *timSettings);
-void runOnTimerInterrupt(CayenneLPP *_lpp,uint8_t *buf,RV3028 *_rtc,RHMesh *man,RH_RF95 *driv,statusflagsType *status,countdownTimerType *timSetting);
+void listenForMessages(RV3028 *_rtc,RHMesh *man,statusflagsType *status);
+void runOnAlarmInterrupt(CayenneLPP *_lpp,RV3028 *_rtc,RHMesh *man,RH_RF95 *driv,statusflagsType *status,countdownTimerType *timSettings);
+void runOnTimerInterrupt(CayenneLPP *_lpp,RV3028 *_rtc,RHMesh *man,RH_RF95 *driv,statusflagsType *status,countdownTimerType *timSetting);
 #endif
+void sendRoutingTable(int row_addr,RHMesh *man,uint8_t adr);
 #endif // GENERALP_FUNCTION

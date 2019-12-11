@@ -65,10 +65,6 @@ statusflagsType statusflags;
 double vcc;
 volatile bool rtcINT = false;
 
-#if HAS_GSM == true
-bufStruct dataBuf;
-#endif
-uint8_t messageBuf[RH_MESH_MAX_MESSAGE_LEN];
 //RTC interrupt service routine
 void rtcISR()
 {
@@ -98,9 +94,11 @@ rtc.setTime(SECONDS,MINUTES,HOURS,WEEKDAY,DATE,MONTH,YEAR);
   rtc.clearInterrupts();
   attachInterrupt(digitalPinToInterrupt(RTC_INTERRUPT_PIN), rtcISR, FALLING);
 
+
   lpp.reset();
   updateSupplyStatus(&statusflags, &rtc);
   statusflags.justRestartet = true; // Indikate that we just restartet
+  statusflags.gsmNode = NODE1_ADDRESS;
 }
 
 void loop()
@@ -116,11 +114,11 @@ void loop()
   }
   rtcIntHandler();
 #if HAS_GSM == true
-  runOnTimerInterrupt(messageBuf, &dataBuf, &rtc, &manager, &driver, &statusflags, &timerSettings);
-  runOnAlarmInterrupt(messageBuf, &dataBuf, &rtc, &manager, &driver, &statusflags, &timerSettings);
+  runOnTimerInterrupt( &rtc, &manager, &driver, &statusflags, &timerSettings);
+  runOnAlarmInterrupt( &rtc, &manager, &driver, &statusflags, &timerSettings);
 #else
-  runOnTimerInterrupt(&lpp, messageBuf, &rtc, &manager, &driver, &statusflags, &timerSettings);
-  runOnAlarmInterrupt(&lpp, messageBuf, &rtc, &manager, &driver, &statusflags, &timerSettings);
+  runOnTimerInterrupt(&lpp, &rtc, &manager, &driver, &statusflags, &timerSettings);
+  runOnAlarmInterrupt(&lpp, &rtc, &manager, &driver, &statusflags, &timerSettings);
 #endif
   if (!statusflags.alarmINT && !statusflags.timerINT)
   {

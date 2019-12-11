@@ -1,5 +1,9 @@
 #include "General_Purpose_Functions.h"
 
+uint8_t messageBuf[RH_MESH_MAX_MESSAGE_LEN];
+#if HAS_GSM == true
+bufStruct dataBuf;
+#endif
 double measureVCC(bool in_mV)
 {
     byte adcSettings = ADMUX; // copy ADC settings so as to reinsert them later
@@ -40,8 +44,8 @@ double measureVCC(bool in_mV)
  **************/
 void updateSupplyStatus(statusflagsType *p, RV3028 *_rtc)
 {
-    analogRead(CAP_MEAS_PIN); // do a garbage read to make shure the users chosen reference is set in the ADMUX register
-    p->vSupercap = /*measureUnregulatetVCC()*/  5300;// done for testing pourposes!
+    analogRead(CAP_MEAS_PIN);                        // do a garbage read to make shure the users chosen reference is set in the ADMUX register
+    p->vSupercap = /*measureUnregulatetVCC()*/ 5300; // done for testing pourposes!
     p->vcc = measureVCC(true);
     delay(300);
 
@@ -86,12 +90,12 @@ uint16_t measureUnregulatetVCC()
         pinMode(CAP_MEAS_ON_OFF_PIN, OUTPUT);
         pinSetOutput = true;
     }
-    digitalWrite(CAP_MEAS_ON_OFF_PIN,HIGH);
+    digitalWrite(CAP_MEAS_ON_OFF_PIN, HIGH);
     analogReference(INTERNAL1V1);
     double result = analogRead(CAP_MEAS_PIN); // Do a garbage reading to make the change of reference happen
     delay(100);                               // wait for reference to settle
     result = analogRead(CAP_MEAS_PIN);        // useful read
-    digitalWrite(CAP_MEAS_ON_OFF_PIN,LOW);
+    digitalWrite(CAP_MEAS_ON_OFF_PIN, LOW);
 
     result = (1100.0 / 1023.0) * result;
     result = (result * (CAP_MEAS_R1 + CAP_MEAS_R2)) / CAP_MEAS_R2;
@@ -220,12 +224,12 @@ void deleteRoutingTableEEPROM(int row_addr)
     }
 }
 
-void listenForTime(uint8_t *buf, RV3028 *_rtc, RHMesh *man, statusflagsType *status)
+void listenForTime(RV3028 *_rtc, RHMesh *man, statusflagsType *status)
 {
 
-    uint8_t len = sizeof(buf);
+    uint8_t len = 3;
     uint8_t from;
-    if (man->recvfromAck(buf, &len, &from))
+    if (man->recvfromAck(messageBuf, &len, &from))
     {
 #ifdef DEBUGMODE
         Serial.println("Recieved broadcast");
@@ -233,35 +237,37 @@ void listenForTime(uint8_t *buf, RV3028 *_rtc, RHMesh *man, statusflagsType *sta
 
 #ifdef DEBUGMODE
         Serial.println("recieved time");
-        Serial.print(buf[2]);
+        Serial.print(messageBuf[2]);
         Serial.print(":");
-        Serial.print(buf[1]);
+        Serial.print(messageBuf[1]);
         Serial.print(":");
-        Serial.println(buf[0]);
+        Serial.println(messageBuf[0]);
 #endif
-        _rtc->setSeconds(buf[0]);
-        _rtc->setMinutes(buf[1]);
-        _rtc->setHours(buf[2]);
+        _rtc->setSeconds(messageBuf[0]);
+        _rtc->setMinutes(messageBuf[1]);
+        _rtc->setHours(messageBuf[2]);
         status->connectet = true;
     }
     return;
 }
 
-void broardcastTime(uint8_t *buf, RV3028 *_rtc, RHMesh *man)
+void broardcastTime(RV3028 *_rtc, RHMesh *man)
 {
     _rtc->updateTime();
-    buf[0] = _rtc->getSeconds();
-    buf[1] = _rtc->getMinutes();
-    buf[2] = _rtc->getHours();
+    messageBuf[0] = _rtc->getSeconds();
+    messageBuf[1] = _rtc->getMinutes();
+    messageBuf[2] = _rtc->getHours();
+    messageBuf[3] = 255;
     uint8_t len = 3;
-    man->sendtoWait(buf, len, RH_BROADCAST_ADDRESS);
+    Serial.print("error: ");
+    Serial.println(man->sendtoWait(messageBuf, len, RH_BROADCAST_ADDRESS));
 #ifdef DEBUGMODE
-        Serial.println("sending time: ");
-        Serial.print(buf[2]);
-        Serial.print(":");
-        Serial.print(buf[1]);
-        Serial.print(":");
-        Serial.println(buf[0]);
+    Serial.println("sending time: ");
+    Serial.print(messageBuf[2]);
+    Serial.print(":");
+    Serial.print(messageBuf[1]);
+    Serial.print(":");
+    Serial.println(messageBuf[0]);
 #endif
     return;
 }
@@ -313,28 +319,34 @@ void sendMessage(CayenneLPP *_lpp, uint8_t adr, RHMesh *man, statusflagsType *st
 
 // Listen for new messages
 #if HAS_GSM == true
-void listenForMessages(uint8_t *buf, bufStruct *datBuf, RV3028 *_rtc, RHMesh *man, statusflagsType *status)
+void listenForMessages(RV3028 *_rtc, RHMesh *man, statusflagsType *status)
 #else
-void listenForMessages(uint8_t *buf, RV3028 *_rtc, RHMesh *man, statusflagsType *status)
+void listenForMessages(RV3028 *_rtc, RHMesh *man, statusflagsType *status)
 #endif
 {
-    uint8_t len = sizeof(buf);
+    uint8_t len = sizeof(messageBuf);
     uint8_t from;
-    if (man->recvfromAck(buf, &len, &from))
+    if (man->recvfromAck(messageBuf, &len, &from))
     {
         status->recievedmsg = true;
 #ifdef DEBUGMODE
         Serial.print("got request from : 0x");
         Serial.print(from, HEX);
         Serial.print(": ");
-        Serial.println((char *)buf);
+        Serial.println((char *)messageBuf);
+        for (int i = 0; i < len; i++)
+        {
+            Serial.print(messageBuf[i]);
+            Serial.print(":");
+        }
+        Serial.println();
 #endif
 #if HAS_GSM == true
         for (int i = len - 1; i <= len; i++)
         { // coppy the data from message buffer to the data buffer
 
-            datBuf->buf[datBuf->curser] = buf[i];
-            datBuf->curser++;
+            dataBuf.buf[dataBuf.curser] = messageBuf[i];
+            dataBuf.curser++;
         }
 #endif
     }
@@ -343,9 +355,9 @@ void listenForMessages(uint8_t *buf, RV3028 *_rtc, RHMesh *man, statusflagsType 
 bool runOnce = false;
 
 #if HAS_GSM == true
-void runOnAlarmInterrupt(uint8_t *buf, bufStruct *datBuf, RV3028 *_rtc, RHMesh *man, RH_RF95 *driv, statusflagsType *status, countdownTimerType *timSettings)
+void runOnAlarmInterrupt(RV3028 *_rtc, RHMesh *man, RH_RF95 *driv, statusflagsType *status, countdownTimerType *timSettings)
 #else
-void runOnAlarmInterrupt(CayenneLPP *_lpp, uint8_t *buf, RV3028 *_rtc, RHMesh *man, RH_RF95 *driv, statusflagsType *status, countdownTimerType *timSettings)
+void runOnAlarmInterrupt(CayenneLPP *_lpp, RV3028 *_rtc, RHMesh *man, RH_RF95 *driv, statusflagsType *status, countdownTimerType *timSettings)
 #endif
 {
     if (!status->alarmINT)
@@ -394,28 +406,32 @@ void runOnAlarmInterrupt(CayenneLPP *_lpp, uint8_t *buf, RV3028 *_rtc, RHMesh *m
     }
 //check to see if this node has a GSM module, this changes how the node behaves
 #if HAS_GSM == false
-    for (int i = SEND_TRIES - 1; i >= 0; i--)
+    while(!status->recievedAck)
     {
-        sendMessage(_lpp, NODE3_ADDRESS, man, status); // NEEDS ANOTHER WAY TO DETERMINE end reserver
-        if(status->recievedAck)
+        sendMessage(_lpp, status->gsmNode, man, status); // NEEDS ANOTHER WAY TO DETERMINE end reserver
+        if (status->recievedAck)
         {
+            man->printRoutingTable();
+            sendRoutingTable(routingTableFirstAddr,man,status->gsmNode);
+            
             break;
         }
-        else 
+        else
         {
             delay(100); // Wait for a small time
         }
     }
-    listenForTime(buf, _rtc, man, status);
+
+    listenForMessages(_rtc, man, status);
 #else
-    listenForMessages(buf, datBuf, _rtc, man, status);
+    listenForMessages(_rtc, man, status);
 #endif
     if (status->windowEnd)
     {
 #ifdef DEBUGMODE
         Serial.println("Ending kommunications window");
 #endif
-        if(status->recievedmsg || status->recievedAck)
+        if (status->recievedmsg || status->recievedAck)
         {
             status->connectet = true;
             status->recievedmsg = false;
@@ -438,11 +454,11 @@ void runOnAlarmInterrupt(CayenneLPP *_lpp, uint8_t *buf, RV3028 *_rtc, RHMesh *m
             Serial.println("sending data Via GSM");
 #endif
             // after sending delete data buffer
-            uint16_t len = datBuf->curser;
+            uint16_t len = dataBuf.curser;
             for (int i = len - 1; i >= 0; i--)
             {
-                datBuf->buf[datBuf->curser] = 0;
-                datBuf->curser--;
+                dataBuf.buf[dataBuf.curser] = 0;
+                dataBuf.curser--;
             }
             status->gsmNotSent = false;
         }
@@ -454,17 +470,22 @@ void runOnAlarmInterrupt(CayenneLPP *_lpp, uint8_t *buf, RV3028 *_rtc, RHMesh *m
 #endif
             status->gsmNotSent = true;
         }
+#else
+        _lpp->addAnalogInput(0,3.3330);
+        _lpp->addAnalogInput(1,2.4);
 #endif
         // enable the timer with the users settings, as we have been repourposing it here
+        _rtc->enableAlarmInterrupt(3,12,1,false,4);
         _rtc->setCountdownTimer(timSettings->time, timSettings->unit, timSettings->repatMode);
         _rtc->enableCountdownTimer();
+        
     }
 }
 
 #if HAS_GSM == true
-void runOnTimerInterrupt(uint8_t *buf, bufStruct *datBuf, RV3028 *_rtc, RHMesh *man, RH_RF95 *driv, statusflagsType *status, countdownTimerType *timSetting)
+void runOnTimerInterrupt(RV3028 *_rtc, RHMesh *man, RH_RF95 *driv, statusflagsType *status, countdownTimerType *timSetting)
 #else
-void runOnTimerInterrupt(CayenneLPP *_lpp, uint8_t *buf, RV3028 *_rtc, RHMesh *man, RH_RF95 *driv, statusflagsType *status, countdownTimerType *timSetting)
+void runOnTimerInterrupt(CayenneLPP *_lpp, RV3028 *_rtc, RHMesh *man, RH_RF95 *driv, statusflagsType *status, countdownTimerType *timSetting)
 #endif
 {
     if (!status->timerINT)
@@ -514,7 +535,7 @@ void runOnTimerInterrupt(CayenneLPP *_lpp, uint8_t *buf, RV3028 *_rtc, RHMesh *m
 #ifdef DEBUGMODE
                 Serial.println("broadcasting time");
 #endif
-                broardcastTime(buf, _rtc, man);
+                broardcastTime(_rtc, man);
             }
             else
             {
@@ -525,7 +546,7 @@ void runOnTimerInterrupt(CayenneLPP *_lpp, uint8_t *buf, RV3028 *_rtc, RHMesh *m
                 _rtc->disableCountdownTimer();
                 while (!status->connectet)
                 {
-                    listenForTime(buf, _rtc, man, status);
+                    listenForTime(_rtc, man, status);
                 }
                 _rtc->enableAlarmInterrupt();
                 _rtc->enableCountdownTimer();
@@ -555,7 +576,7 @@ void runOnTimerInterrupt(CayenneLPP *_lpp, uint8_t *buf, RV3028 *_rtc, RHMesh *m
             //manager.setTxPower(20,false);
             if (status->connectet)
             {
-                broardcastTime(buf, _rtc, man);
+                broardcastTime(_rtc, man);
 #ifdef DEBUGMODE
                 Serial.println("broadcasting time");
 #endif
@@ -569,7 +590,7 @@ void runOnTimerInterrupt(CayenneLPP *_lpp, uint8_t *buf, RV3028 *_rtc, RHMesh *m
                 _rtc->disableCountdownTimer();
                 while (!status->connectet)
                 {
-                    listenForTime(buf, _rtc, man, status);
+                    listenForTime(_rtc, man, status);
                 }
                 _rtc->enableAlarmInterrupt();
                 _rtc->enableCountdownTimer();
@@ -598,7 +619,7 @@ void runOnTimerInterrupt(CayenneLPP *_lpp, uint8_t *buf, RV3028 *_rtc, RHMesh *m
                     _rtc->disableCountdownTimer();
                     while (!status->connectet)
                     {
-                        listenForTime(buf, _rtc, man, status);
+                        listenForTime(_rtc, man, status);
                     }
                     _rtc->enableAlarmInterrupt();
                     _rtc->enableCountdownTimer();
@@ -618,5 +639,69 @@ void runOnTimerInterrupt(CayenneLPP *_lpp, uint8_t *buf, RV3028 *_rtc, RHMesh *m
             }
         }
         return;
+    }
+}
+
+void sendRoutingTable(int row_addr,RHMesh *man,uint8_t adr)
+{
+    // This functions gets the most recent routing table saved in EEPROM memory.
+
+    // Local initializing of relative address incrementers.
+    uint8_t dest_addr = 0;
+    uint8_t next_hop_addr = 1;
+    uint8_t state_addr = 2;
+    uint8_t next_row = 3;
+    uint8_t empty_addr = 0xFF;
+    int first_addr = row_addr;
+    uint8_t buf[RH_ROUTING_TABLE_SIZE * next_row];
+    // Local declaration of table (dest, next_hop, state), so EEPROM only has to be read once per address by instantly saving the read values.
+    uint8_t dest, next_hop, state;
+
+    while (((dest = EEPROM.read(row_addr + dest_addr)) & (next_hop = EEPROM.read(row_addr + next_hop_addr)) &
+            (state = EEPROM.read(row_addr + state_addr))) != empty_addr)
+    { // Read all addresses for the row of the routing table (dest, next_hop, state). If all contains 0xFF, then EEPROM addresses is empty
+        if (row_addr > (first_addr + (RH_ROUTING_TABLE_SIZE * next_row)))
+        { // Give error if routing table exceeds the default routing table size defined in RHRouter.h
+#ifdef DEBUGMODE
+            Serial.print("Error: Routing table in EEPRROM exceeds maximum size of ");
+            Serial.print(RH_ROUTING_TABLE_SIZE);
+            Serial.println(" entries.");
+#endif
+            break;
+        }
+        buf[row_addr + dest_addr] = dest; //
+        buf[row_addr + next_hop_addr] = next_hop;
+        buf[row_addr + state_addr] = state;
+        row_addr = row_addr + next_row; // Get next rows address
+    }
+uint8_t len = sizeof(buf);
+    if (man->sendtoWait(buf, len, adr) == RH_ROUTER_ERROR_NONE)
+    {
+        
+        
+#ifdef DEBUGMODE
+        // It has been reliably delivered to the next node.
+        // Now wait for a reply from the other node
+
+        uint8_t len = sizeof(testbuffer);
+        uint8_t from;
+        if (man->recvfromAckTimeout(testbuffer, &len, 3000, &from))
+        {
+            Serial.print("got reply from : 0x");
+            Serial.print(from, HEX);
+            Serial.print(": ");
+            Serial.println((char *)testbuffer);
+        }
+        else
+        {
+            Serial.println("No reply, are other nodes running?");
+        }
+#endif
+    }
+    else
+    {
+#ifdef DEBUGMODE
+        Serial.println("sendtoWait failed. Are the intermediate nodes running?");
+#endif
     }
 }
