@@ -451,10 +451,10 @@ void runOnAlarmInterrupt(CayenneLPP *_lpp, RV3028 *_rtc, RHMesh *man, RH_RF95 *d
       {
         dataBuf.buf[dataBuf.curser] = status->ownAdress;
         dataBuf.curser++;
-        dataBuf.buf[dataBuf.curser] = _lpp->getSize;
+        dataBuf.buf[dataBuf.curser] = _lpp->getSize();
         dataBuf.curser++;
-        uint8_t *lppbuff = _lpp->getBuffer;
-        for (int i = _lpp->getSize - 1; i <= _lpp->getSize; i++)
+        uint8_t *lppbuff = _lpp->getBuffer();
+        for (int i = _lpp->getSize() - 1; i <= _lpp->getSize(); i++)
         { // coppy the data from message buffer to the data buffer
           dataBuf.buf[dataBuf.curser] = messageBuf[i];
           dataBuf.curser++;
