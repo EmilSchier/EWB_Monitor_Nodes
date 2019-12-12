@@ -197,7 +197,7 @@ void sendMessage(bool run){
   uint32_t sendTime = millis();
   int error;
   // Send start timestamp, which gives an eight byte payload. 
-  if ( (error = manager.sendtoWait(payload, sizeof(payload), NODE1_ADDRESS) ) == RH_ROUTER_ERROR_NONE )
+  if ( (error = manager.sendtoWait(payload, sizeof(payload), NODE1_ADDRESS) ) == RH_ROUTER_ERROR_NONE)
   {
     recTime = millis();  // is run as soon as the data has been send and acknowledged by the next node. 
     
