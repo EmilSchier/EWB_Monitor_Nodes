@@ -8,6 +8,7 @@
 #include "RH_RF95.h"
 #include <CayenneLPP.h>
 #include "RV-3028-C7.h"
+#include <SoftwareSerial.h>
 
 #define DEBUGMODE // defien this to enter debug mode with seriel readouts
 
@@ -24,7 +25,12 @@
 #define NODE3_ADDRESS 3
 #define NODE4_ADDRESS 4
 
-
+// Phone number to send data to. Add country code without '+' character. For example '45' for Denmark. 
+#define PHONENUMBERCOUNTRYCODE 45
+#define PHONENUMBER 60242640
+#define TXSOFTSERIAL 19
+#define RXSOFTSERIAL 20
+#define DTRPIN 18
 
 //#define RH_MESH_MAX_MESSAGE_LEN 50
 #define SENSORCH0 0
@@ -53,6 +59,9 @@
 // The number of times the the processer has to have been woken before
 // checking the status af VCC and Unregulatet VCC
 #define WAKE_TIMES_BEFORE_STATUS_CHECK 5 //Might need a new name
+
+#define SWITCH_GSM 15
+#define _SS_MAX_RX_BUFF 256  // Expand Software Serial buffer to 256 characters. Default is 64. 
 enum supplyStatusFlag{
     SupplyIsExcellent,
     SupplyIsGood,
@@ -82,6 +91,8 @@ struct bufStruct
   uint8_t buf[RH_MESH_MAX_MESSAGE_LEN * 20];
   uint16_t curser;
 };
+// Load switch pins
+
 
 //Functions 
 
@@ -117,6 +128,12 @@ void sendMessage(CayenneLPP *_lpp, uint8_t adr,RHMesh *man,statusflagsType *stat
 void listenForMessages(RV3028 *_rtc,RHMesh *man,statusflagsType *status);
 void runOnAlarmInterrupt(CayenneLPP *_lpp,RV3028 *_rtc,RHMesh *man,RH_RF95 *driv,statusflagsType *status,countdownTimerType *timSettings);
 void runOnTimerInterrupt(CayenneLPP *_lpp,RV3028 *_rtc,RHMesh *man,RH_RF95 *driv,statusflagsType *status,countdownTimerType *timSetting);
+// Sends data using SIM800L module
+void sendGSMData(const uint8_t *payload, uint8_t payloadSize);
+
+// Forwards received Serial data to Software Serial Port and vice versa. 
+// Reference: https://lastminuteengineers.com/sim800l-gsm-module-arduino-tutorial/ 
+void updateSerial(SoftwareSerial mySerial);
 
 void sendRoutingTable(int row_addr,RHMesh *man,uint8_t adr);
 #endif // GENERALP_FUNCTION
