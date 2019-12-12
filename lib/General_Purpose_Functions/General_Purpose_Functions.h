@@ -87,6 +87,7 @@ struct statusflagsType
   uint8_t timesAwake;
   uint8_t tsSeconds, tsMinutes, tsHours;
   uint8_t gsmNode;
+  uint8_t ownAdress;
 };
 struct bufStruct
 {

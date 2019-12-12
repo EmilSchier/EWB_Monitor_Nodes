@@ -339,9 +339,12 @@ void listenForMessages(RV3028 *_rtc, RHMesh *man, statusflagsType *status)
 #endif
     if (status->hasGSM)
     {
+      dataBuf.buf[dataBuf.curser] = from;
+      dataBuf.curser++;
+      dataBuf.buf[dataBuf.curser] = len;
+      dataBuf.curser++;
       for (int i = len - 1; i <= len; i++)
       { // coppy the data from message buffer to the data buffer
-
         dataBuf.buf[dataBuf.curser] = messageBuf[i];
         dataBuf.curser++;
       }
@@ -446,7 +449,18 @@ void runOnAlarmInterrupt(CayenneLPP *_lpp, RV3028 *_rtc, RHMesh *man, RH_RF95 *d
     {
       if (SupplyIsExcellent == status->statusFlag) // if supply is optimal
       {
+        dataBuf.buf[dataBuf.curser] = status->ownAdress;
+        dataBuf.curser++;
+        dataBuf.buf[dataBuf.curser] = _lpp->getSize;
+        dataBuf.curser++;
+        uint8_t *lppbuff = _lpp->getBuffer;
+        for (int i = _lpp->getSize - 1; i <= _lpp->getSize; i++)
+        { // coppy the data from message buffer to the data buffer
+          dataBuf.buf[dataBuf.curser] = messageBuf[i];
+          dataBuf.curser++;
+        }
         // send data via GSM
+        sendGSMData(dataBuf.buf,dataBuf.curser);
 #ifdef DEBUGMODE
         Serial.println("sending data Via GSM");
 #endif
@@ -553,6 +567,7 @@ void runOnTimerInterrupt(CayenneLPP *_lpp, RV3028 *_rtc, RHMesh *man, RH_RF95 *d
         Serial.println("Sending data with GSM");
 #endif
         // Read saved data from EEPROM and send using GSM module
+        sendGSMData(dataBuf.buf,dataBuf.curser);
         status->gsmNotSent = false;
       }
       break;

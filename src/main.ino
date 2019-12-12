@@ -101,6 +101,7 @@ rtc.setTime(SECONDS,MINUTES,HOURS,WEEKDAY,DATE,MONTH,YEAR);
   statusflags.justRestartet = true; // Indikate that we just restartet
   statusflags.gsmNode = NODE1_ADDRESS; // The node to send data to
   statusflags.hasGSM = true; // Does this node have GSM module?
+  statusflags.ownAdress = NODE2_ADDRESS;
   //statusflags.connectet = true; // testing
   
 }
