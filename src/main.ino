@@ -10,7 +10,7 @@
 RH_RF95 driver(4, 2); // pins for ATmega1284
 
 // Class to manage message delivery and receipt, using the driver declared above
-RHMesh manager(driver, NODE1_ADDRESS);
+RHMesh manager(driver, NODE2_ADDRESS);
 
 // Cayenne Low Power Protocol
 CayenneLPP lpp(PAYLOADMAXSIZE);
@@ -94,11 +94,15 @@ rtc.setTime(SECONDS,MINUTES,HOURS,WEEKDAY,DATE,MONTH,YEAR);
   rtc.clearInterrupts();
   attachInterrupt(digitalPinToInterrupt(RTC_INTERRUPT_PIN), rtcISR, FALLING);
 
-
   lpp.reset();
+  lpp.addAnalogInput(0,100.0);
+  lpp.addAnalogInput(1,1.5);
   updateSupplyStatus(&statusflags, &rtc);
   statusflags.justRestartet = true; // Indikate that we just restartet
-  statusflags.gsmNode = NODE1_ADDRESS;
+  statusflags.gsmNode = NODE1_ADDRESS; // The node to send data to
+  statusflags.hasGSM = true; // Does this node have GSM module?
+  //statusflags.connectet = true; // testing
+  
 }
 
 void loop()
@@ -113,13 +117,8 @@ void loop()
     statusflags.gotosleep = false;
   }
   rtcIntHandler();
-#if HAS_GSM == true
-  runOnTimerInterrupt( &rtc, &manager, &driver, &statusflags, &timerSettings);
-  runOnAlarmInterrupt( &rtc, &manager, &driver, &statusflags, &timerSettings);
-#else
   runOnTimerInterrupt(&lpp, &rtc, &manager, &driver, &statusflags, &timerSettings);
   runOnAlarmInterrupt(&lpp, &rtc, &manager, &driver, &statusflags, &timerSettings);
-#endif
   if (!statusflags.alarmINT && !statusflags.timerINT)
   {
 

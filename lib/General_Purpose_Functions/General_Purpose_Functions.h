@@ -10,8 +10,6 @@
 #include "RV-3028-C7.h"
 
 #define DEBUGMODE // defien this to enter debug mode with seriel readouts
-#define HAS_GSM false // set false if the specific node to be set up does not have a GSM module
-
 // Defines
 #define routingTableFirstAddr  0
 
@@ -70,6 +68,7 @@ struct statusflagsType{
     bool alarmINT, timerINT,windowEnd;
     bool gotosleep;
     bool justRestartet;
+    bool hasGSM;
     double vcc;
     double vSupercap;
     enum supplyStatusFlag statusFlag;
@@ -113,14 +112,10 @@ void deleteRoutingTableEEPROM(int row_addr);
 void listenForTime(RV3028 *_rtc,RHMesh *man,statusflagsType *status);
 void broardcastTime(RV3028 *_rtc,RHMesh *man);
 void sendMessage(CayenneLPP *_lpp, uint8_t adr,RHMesh *man,statusflagsType *status);
-#if HAS_GSM == true
-void listenForMessages(RV3028 *_rtc,RHMesh *man,statusflagsType *status);
-void runOnAlarmInterrupt(RV3028 *_rtc,RHMesh *man,RH_RF95 *driv,statusflagsType *status,countdownTimerType *timSettings);
-void runOnTimerInterrupt(RV3028 *_rtc,RHMesh *man,RH_RF95 *driv,statusflagsType *status,countdownTimerType *timSetting);
-#else
+
 void listenForMessages(RV3028 *_rtc,RHMesh *man,statusflagsType *status);
 void runOnAlarmInterrupt(CayenneLPP *_lpp,RV3028 *_rtc,RHMesh *man,RH_RF95 *driv,statusflagsType *status,countdownTimerType *timSettings);
 void runOnTimerInterrupt(CayenneLPP *_lpp,RV3028 *_rtc,RHMesh *man,RH_RF95 *driv,statusflagsType *status,countdownTimerType *timSetting);
-#endif
+
 void sendRoutingTable(int row_addr,RHMesh *man,uint8_t adr);
 #endif // GENERALP_FUNCTION

@@ -1,9 +1,9 @@
 #include "General_Purpose_Functions.h"
 
 uint8_t messageBuf[RH_MESH_MAX_MESSAGE_LEN];
-#if HAS_GSM == true
+
 bufStruct dataBuf;
-#endif
+
 double measureVCC(bool in_mV)
 {
     byte adcSettings = ADMUX; // copy ADC settings so as to reinsert them later
@@ -318,11 +318,7 @@ void sendMessage(CayenneLPP *_lpp, uint8_t adr, RHMesh *man, statusflagsType *st
 }
 
 // Listen for new messages
-#if HAS_GSM == true
 void listenForMessages(RV3028 *_rtc, RHMesh *man, statusflagsType *status)
-#else
-void listenForMessages(RV3028 *_rtc, RHMesh *man, statusflagsType *status)
-#endif
 {
     uint8_t len = sizeof(messageBuf);
     uint8_t from;
@@ -341,24 +337,21 @@ void listenForMessages(RV3028 *_rtc, RHMesh *man, statusflagsType *status)
         }
         Serial.println();
 #endif
-#if HAS_GSM == true
-        for (int i = len - 1; i <= len; i++)
-        { // coppy the data from message buffer to the data buffer
+        if (status->hasGSM)
+        {
+            for (int i = len - 1; i <= len; i++)
+            { // coppy the data from message buffer to the data buffer
 
-            dataBuf.buf[dataBuf.curser] = messageBuf[i];
-            dataBuf.curser++;
+                dataBuf.buf[dataBuf.curser] = messageBuf[i];
+                dataBuf.curser++;
+            }
         }
-#endif
     }
 }
 
 bool runOnce = false;
 
-#if HAS_GSM == true
-void runOnAlarmInterrupt(RV3028 *_rtc, RHMesh *man, RH_RF95 *driv, statusflagsType *status, countdownTimerType *timSettings)
-#else
 void runOnAlarmInterrupt(CayenneLPP *_lpp, RV3028 *_rtc, RHMesh *man, RH_RF95 *driv, statusflagsType *status, countdownTimerType *timSettings)
-#endif
 {
     if (!status->alarmINT)
         return;
@@ -404,28 +397,31 @@ void runOnAlarmInterrupt(CayenneLPP *_lpp, RV3028 *_rtc, RHMesh *man, RH_RF95 *d
      * */
         status->justRestartet = false; // Now we dont need to know
     }
-//check to see if this node has a GSM module, this changes how the node behaves
-#if HAS_GSM == false
-    while(!status->recievedAck)
+    //check to see if this node has a GSM module, this changes how the node behaves
+    if (!status->hasGSM)
     {
-        sendMessage(_lpp, status->gsmNode, man, status); // NEEDS ANOTHER WAY TO DETERMINE end reserver
-        if (status->recievedAck)
+        while (!status->recievedAck)
         {
-            man->printRoutingTable();
-            sendRoutingTable(routingTableFirstAddr,man,status->gsmNode);
-            
-            break;
-        }
-        else
-        {
-            delay(100); // Wait for a small time
-        }
-    }
+            sendMessage(_lpp, status->gsmNode, man, status); // NEEDS ANOTHER WAY TO DETERMINE end reserver
+            if (status->recievedAck)
+            {
+                man->printRoutingTable();
+                sendRoutingTable(routingTableFirstAddr, man, status->gsmNode);
 
-    listenForMessages(_rtc, man, status);
-#else
-    listenForMessages(_rtc, man, status);
-#endif
+                break;
+            }
+            else
+            {
+                delay(100); // Wait for a small time
+            }
+        }
+
+        listenForMessages(_rtc, man, status);
+    }
+    else
+    {
+        listenForMessages(_rtc, man, status);
+    }
     if (status->windowEnd)
     {
 #ifdef DEBUGMODE
@@ -446,47 +442,46 @@ void runOnAlarmInterrupt(CayenneLPP *_lpp, RV3028 *_rtc, RHMesh *man, RH_RF95 *d
         status->windowEnd = false;
         runOnce = false; // reset runonce
         saveRoutingTable(routingTableFirstAddr, man);
-#if HAS_GSM == true
-        if (SupplyIsExcellent == status->statusFlag) // if supply is optimal
+        if (status->hasGSM)
         {
-            // send data via GSM
-#ifdef DEBUGMODE
-            Serial.println("sending data Via GSM");
-#endif
-            // after sending delete data buffer
-            uint16_t len = dataBuf.curser;
-            for (int i = len - 1; i >= 0; i--)
+            if (SupplyIsExcellent == status->statusFlag) // if supply is optimal
             {
-                dataBuf.buf[dataBuf.curser] = 0;
-                dataBuf.curser--;
+                // send data via GSM
+#ifdef DEBUGMODE
+                Serial.println("sending data Via GSM");
+#endif
+                // after sending delete data buffer
+                uint16_t len = dataBuf.curser;
+                for (int i = len - 1; i >= 0; i--)
+                {
+                    dataBuf.buf[dataBuf.curser] = 0;
+                    dataBuf.curser--;
+                }
+                status->gsmNotSent = false;
             }
-            status->gsmNotSent = false;
+            else
+            {
+                //save data in EEPROM
+#ifdef DEBUGMODE
+                Serial.println("Save data buffer in EEPROM");
+#endif
+                status->gsmNotSent = true;
+            }
         }
         else
         {
-            //save data in EEPROM
-#ifdef DEBUGMODE
-            Serial.println("Save data buffer in EEPROM");
-#endif
-            status->gsmNotSent = true;
+            _lpp->addAnalogInput(0, 3.3330);
+            _lpp->addAnalogInput(1, 2.4);
         }
-#else
-        _lpp->addAnalogInput(0,3.3330);
-        _lpp->addAnalogInput(1,2.4);
-#endif
         // enable the timer with the users settings, as we have been repourposing it here
-        _rtc->enableAlarmInterrupt(3,12,1,false,4);
+        _rtc->enableAlarmInterrupt(3, 12, 1, false, 4);
         _rtc->setCountdownTimer(timSettings->time, timSettings->unit, timSettings->repatMode);
         _rtc->enableCountdownTimer();
-        
     }
 }
 
-#if HAS_GSM == true
-void runOnTimerInterrupt(RV3028 *_rtc, RHMesh *man, RH_RF95 *driv, statusflagsType *status, countdownTimerType *timSetting)
-#else
+
 void runOnTimerInterrupt(CayenneLPP *_lpp, RV3028 *_rtc, RHMesh *man, RH_RF95 *driv, statusflagsType *status, countdownTimerType *timSetting)
-#endif
 {
     if (!status->timerINT)
         return;
@@ -553,7 +548,7 @@ void runOnTimerInterrupt(CayenneLPP *_lpp, RV3028 *_rtc, RHMesh *man, RH_RF95 *d
             }
             digitalWrite(EN_LORA_PIN, LOW);
 
-            if (status->gsmNotSent && HAS_GSM == true)
+            if (status->gsmNotSent && status->hasGSM)
             {
 #ifdef DEBUGMODE
                 Serial.println("Sending data with GSM");
@@ -642,7 +637,7 @@ void runOnTimerInterrupt(CayenneLPP *_lpp, RV3028 *_rtc, RHMesh *man, RH_RF95 *d
     }
 }
 
-void sendRoutingTable(int row_addr,RHMesh *man,uint8_t adr)
+void sendRoutingTable(int row_addr, RHMesh *man, uint8_t adr)
 {
     // This functions gets the most recent routing table saved in EEPROM memory.
 
@@ -674,11 +669,10 @@ void sendRoutingTable(int row_addr,RHMesh *man,uint8_t adr)
         buf[row_addr + state_addr] = state;
         row_addr = row_addr + next_row; // Get next rows address
     }
-uint8_t len = sizeof(buf);
+    uint8_t len = sizeof(buf);
     if (man->sendtoWait(buf, len, adr) == RH_ROUTER_ERROR_NONE)
     {
-        
-        
+
 #ifdef DEBUGMODE
         // It has been reliably delivered to the next node.
         // Now wait for a reply from the other node
