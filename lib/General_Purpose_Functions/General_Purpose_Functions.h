@@ -10,6 +10,7 @@
 #include "RV-3028-C7.h"
 
 #define DEBUGMODE // defien this to enter debug mode with seriel readouts
+
 // Defines
 #define routingTableFirstAddr  0
 
