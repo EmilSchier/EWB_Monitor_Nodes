@@ -725,7 +725,7 @@ void sendGSMData(const uint8_t *payload, uint8_t payloadSize)
   updateSerial(mySerial);
   //lpp.decode(lpp.getBuffer(),lpp.getSize(),root);  // Decodes lpp buffer and saves it in the reserved memory 'JsonArray root'.
   //serializeJsonPretty(root,mySerial);  // Serializes/creates a JSON document with spaces and line-breaks between values.
-  mySerial.write(payload, sizeof(payloadSize)); // Message text content. Maximum of 160 characters. ÅÆØ and other special characters will not work without a different encoding
+  mySerial.write(payload, payloadSize); // Message text content. Maximum of 160 characters. ÅÆØ and other special characters will not work without a different encoding
 
   // PDU mode (binary mode - not implemented)
   // Reference: https://www.developershome.com/sms/cmgsCommand6.asp
@@ -740,6 +740,7 @@ void sendGSMData(const uint8_t *payload, uint8_t payloadSize)
 
   mySerial.write(26); // 26 = 'Ctrl+z character (ASCII)' -> send
   delay(100);         // wait for data to be send
+  //mySerial.flush(); den kan vi bruge i stedet for delay
   mySerial.end();
   digitalWrite(SWITCH_GSM, LOW); // Set load switch in OFF state
 }
