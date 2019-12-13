@@ -289,24 +289,6 @@ void sendMessage(CayenneLPP *_lpp, uint8_t adr, RHMesh *man, statusflagsType *st
     {
       status->recievedAck = true; // indicate that the node connectet to the network
       _lpp->reset();
-#ifdef DEBUGMODE
-      // It has been reliably delivered to the next node.
-      // Now wait for a reply from the other node
-
-      uint8_t len = sizeof(testbuffer);
-      uint8_t from;
-      if (man->recvfromAckTimeout(testbuffer, &len, 3000, &from))
-      {
-        Serial.print("got reply from : 0x");
-        Serial.print(from, HEX);
-        Serial.print(": ");
-        Serial.println((char *)testbuffer);
-      }
-      else
-      {
-        Serial.println("No reply, are other nodes running?");
-      }
-#endif
     }
     else
     {
@@ -382,12 +364,33 @@ void runOnAlarmInterrupt(CayenneLPP *_lpp, RV3028 *_rtc, RHMesh *man, RH_RF95 *d
     runOnce = true;
     _rtc->setCountdownTimer(WINDOW_DURATION, UNIT_SECOND, false);
     _rtc->enableCountdownTimer();
+    //check to see if this node has a GSM module, this changes how the node behaves
+    if (!status->hasGSM)
+    {
+      uint8_t tries = 0;
+      while (!status->recievedAck && tries < SEND_TRIES)
+      {
+        sendMessage(_lpp, status->gsmNode, man, status); // NEEDS ANOTHER WAY TO DETERMINE end reserver
+        if (status->recievedAck)
+        {
+          man->printRoutingTable();
+          sendRoutingTable(routingTableFirstAddr, man, status->gsmNode);
+
+          break;
+        }
+        else
+        {
+          delay(100); // Wait for a small time
+          tries++;
+        }
+      }
+    }
   }
   // Check if this is first time after startup we are transmitting
   if (status->justRestartet)
   {
 #ifdef DEBUGMODE
-    Serial.println("Fisrt Window after restart");
+    Serial.println("First Window after restart");
 #endif
     /*** check if data is saved in EEPROM
      * {
@@ -400,31 +403,10 @@ void runOnAlarmInterrupt(CayenneLPP *_lpp, RV3028 *_rtc, RHMesh *man, RH_RF95 *d
      * */
     status->justRestartet = false; // Now we dont need to know
   }
-  //check to see if this node has a GSM module, this changes how the node behaves
-  if (!status->hasGSM)
-  {
-    while (!status->recievedAck)
-    {
-      sendMessage(_lpp, status->gsmNode, man, status); // NEEDS ANOTHER WAY TO DETERMINE end reserver
-      if (status->recievedAck)
-      {
-        man->printRoutingTable();
-        sendRoutingTable(routingTableFirstAddr, man, status->gsmNode);
-
-        break;
-      }
-      else
-      {
-        delay(100); // Wait for a small time
-      }
-    }
-
+  
+  
     listenForMessages(_rtc, man, status);
-  }
-  else
-  {
-    listenForMessages(_rtc, man, status);
-  }
+  
   if (status->windowEnd)
   {
 #ifdef DEBUGMODE
@@ -484,11 +466,11 @@ void runOnAlarmInterrupt(CayenneLPP *_lpp, RV3028 *_rtc, RHMesh *man, RH_RF95 *d
     }
     else
     {
-      _lpp->addAnalogInput(0, 3.3330);
-      _lpp->addAnalogInput(1, 2.4);
+      //_lpp->addAnalogInput(0, 3.3330);
+      //_lpp->addAnalogInput(1, 2.4);
     }
     // enable the timer with the users settings, as we have been repourposing it here
-    _rtc->enableAlarmInterrupt(3, 12, 1, false, 4);
+    //_rtc->enableAlarmInterrupt(3, 12, 1, false, 4);
     _rtc->setCountdownTimer(timSettings->time, timSettings->unit, timSettings->repatMode);
     _rtc->enableCountdownTimer();
   }
@@ -757,7 +739,6 @@ void sendGSMData(const uint8_t *payload, uint8_t payloadSize)
   mySerial.write(26); // 26 = 'Ctrl+z character (ASCII)' -> send
   delay(100);         // wait for data to be send
   //mySerial.flush(); den kan vi bruge i stedet for delay
-  mySerial.end();
   digitalWrite(SWITCH_GSM, LOW); // Set load switch in OFF state
 }
 
