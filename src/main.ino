@@ -10,7 +10,7 @@
 RH_RF95 driver(4, 2); // pins for ATmega1284
 
 // Class to manage message delivery and receipt, using the driver declared above
-RHMesh manager(driver, NODE3_ADDRESS);
+RHMesh manager(driver, NODE1_ADDRESS);
 
 // Cayenne Low Power Protocol
 CayenneLPP lpp(PAYLOADMAXSIZE);
@@ -60,10 +60,9 @@ If you want to set a weekday alarm (ALARM_NOT_DATES = true), set 'ALARM_DATE' fr
 #define TIMER_REPEAT true // Repeat mode true or false
 
 countdownTimerType timerSettings = {TIMER_TIME, TIMER_UNIT, TIMER_REPEAT};
-statusflagsType statusflags;
-double vcc;
-volatile bool rtcINT = false;
 
+volatile bool rtcINT = false;
+statusflagsType statusflags;
 //RTC interrupt service routine
 void rtcISR()
 {
@@ -94,36 +93,22 @@ void setup()
   attachInterrupt(digitalPinToInterrupt(RTC_INTERRUPT_PIN), rtcISR, FALLING);
 
   lpp.reset();
-  //lpp.addAnalogInput(0,100.0);
-  //lpp.addAnalogInput(1,1.5);
-  updateSupplyStatus(&statusflags, &rtc);
-  statusflags.justRestartet = true; // Indikate that we just restartet
-  statusflags.gsmNode = NODE1_ADDRESS; // The node to send data to
-  statusflags.hasGSM = false; // Does this node have GSM module?
-  statusflags.ownAdress = NODE3_ADDRESS;
-  //statusflags.connectet = true; // testing
   
 }
 
 void loop()
 {
-  if (statusflags.gotosleep)
-  {
+stateMashine();
+  
+}
+
+void gotoSleep()
+{
 #ifdef DEBUGMODE
     Serial.println("Going to sleep");
     Serial.flush();
 #endif
     LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);
-    statusflags.gotosleep = false;
-  }
-  rtcIntHandler();
-  runOnTimerInterrupt(&lpp, &rtc, &manager, &driver, &statusflags, &timerSettings);
-  runOnAlarmInterrupt(&lpp, &rtc, &manager, &driver, &statusflags, &timerSettings);
-  if (!statusflags.alarmINT && !statusflags.timerINT)
-  {
-
-    statusflags.gotosleep = true;
-  }
 }
 
 void rtcIntHandler()
@@ -149,25 +134,7 @@ void rtcIntHandler()
 #ifdef DEBUGMODE
     Serial.println("Timer Int");
 #endif
-    // code to do if this flag is high
-    if (statusflags.alarmINT && !statusflags.windowEnd)
-    {
-      statusflags.windowEnd = true;
-#ifdef DEBUGMODE
-      Serial.println("End of communications window In interrupt");
-#endif
-    }
-    else
-    { // dont do this when the timer signalts the end ofthe alarm
-      if (!statusflags.timerINT)
-        statusflags.timerINT = true; // Indicade that this interrupt has happened
-      /****************************************
-     * Tasks where timing is important
-     * For example making a measurement at a specific time ore with a specific time differance
-     ***************************************/
-     //float V_cap = (float)measureUnregulatetVCC()/1000.0;
-     //lpp.addAnalogInput(0,V_cap);
-    }
+    statusflags.timerINT = true; // Indicade that this interrupt has happened
   }
   if ((flags & _BV(STATUS_AF))) // Alarm interrupt
   {
@@ -175,7 +142,6 @@ void rtcIntHandler()
     Serial.println("Alarm Int");
 #endif
     // code to do if this flag is high
-    if (!statusflags.alarmINT)
       statusflags.alarmINT = true; // Indicade that this interrupt has happened
   }
   
@@ -195,4 +161,165 @@ void rtcIntHandler()
       {
         // code to do if this flag is high
       }  */
+}
+enum states nextState;
+enum states lastState;
+void stateMashine()
+{
+  
+  switch (statusflags.currentState)
+  {
+  case Sleep:
+    gotoSleep();
+    rtcIntHandler();
+    if(statusflags.alarmINT)
+    {
+      nextState = DataExchange;
+      statusflags.alarmINT = false;
+    }else if(statusflags.timerINT){
+      nextState = CollectData;
+      statusflags.timerINT = false;
+    }
+    break;
+  case CollectData:
+    if(lastState != statusflags.currentState){
+#ifdef DEBUGMODE
+      Serial.println("Entered mode: CollectData");
+#endif
+      statusflags.timesAwake ++; 
+    }
+    // collect data from sensors
+
+
+    if(WAKE_TIMES_BEFORE_STATUS_CHECK == statusflags.timesAwake){
+      updateSupplyStatus(&statusflags,&rtc);
+      statusflags.timesAwake = 0;
+    }
+    //should i broadcast time?
+    switch (statusflags.supplyStatusFlag)
+    {
+    case SupplyIsExcellent:
+      digitalWrite(EN_LORA_PIN, HIGH); // turn on the LoRa module
+      delay(100); // ved ikke hvor stort et delay der skal være
+      if(!manager.init()){
+#ifdef DEBUGMODE
+        Serial.println("RFM96 init failed");
+#endif
+      }
+      broardcastTime(&rtc,&manager);
+      break;
+    case SupplyIsGood:
+      digitalWrite(EN_LORA_PIN, HIGH); // turn on the LoRa module
+      delay(100); // ved ikke hvor stort et delay der skal være
+      if(!manager.init()){
+#ifdef DEBUGMODE
+        Serial.println("RFM96 init failed");
+#endif
+      }
+      broardcastTime(&rtc,&manager);
+      break;
+    case SupplyIsModerate:
+      /* code */
+      break;
+    case SupplyIsBad:
+      /* code */
+      break;
+    case SupplyIsTerrible:
+      // save data to EEPROM
+      break;
+    default:
+      break;
+    }
+
+    nextState = Sleep;
+    if(nextState != statusflags.currentState){
+      digitalWrite(EN_LORA_PIN,LOW);
+    }
+    break;
+  case DataExchange:
+    if(lastState != statusflags.currentState){
+#ifdef DEBUGMODE
+      Serial.println("Entered mode: DataExchange");
+#endif
+      digitalWrite(EN_LORA_PIN, HIGH); // turn on the LoRa module
+      delay(100); // ved ikke hvor stort et delay der skal være
+      if(!manager.init()){
+#ifdef DEBUGMODE
+        Serial.println("RFM96 init failed");
+#endif
+      }
+      // Defaults after init are 434.0MHz, 0.05MHz AFC pull-in, modulation FSK_Rb2_4Fd36
+      driver.setFrequency(RADIO_FREQUENCY);
+#ifdef DEBUGMODE
+        Serial.println("Com. window start");
+#endif
+      rtc.setCountdownTimer(WINDOW_DURATION,UNIT_SECOND,false);
+      rtc.enableCountdownTimer();
+    }
+    if(statusflags.hasGSM)
+    {
+      listenForMessages(&manager,&statusflags);
+    }else{
+      sendMessage(&lpp, statusflags.gsmNode, &manager, &statusflags);
+      listenForMessages(&manager, &statusflags);
+    }
+    rtcIntHandler();
+    if(statusflags.timerINT){
+      statusflags.timerINT = false;
+#ifdef DEBUGMODE
+      Serial.println("Com. window end");
+#endif
+      if(statusflags.recievedAck || statusflags.recievedmsg){
+        statusflags.connectet = true;
+        nextState = Sleep;
+      } else {
+        nextState = ListenForTime;
+        statusflags.connectet = false;
+      }
+    }
+    if(nextState != statusflags.currentState){
+      digitalWrite(EN_LORA_PIN, LOW); // turn off the LoRa module
+      // genstart countdown timeren med brugerens indstillinger
+      rtc.setCountdownTimer(timerSettings.time,timerSettings.unit,timerSettings.repatMode);
+      rtc.enableCountdownTimer();
+    }
+    break;
+  case ListenForTime:
+    if(lastState != statusflags.currentState){
+#ifdef DEBUGMODE
+      Serial.println("Entered mode: ListenForTime");
+#endif
+      digitalWrite(EN_LORA_PIN, HIGH); // turn on the LoRa module
+      delay(100); // ved ikke hvor stort et delay der skal være
+      if(!manager.init()){
+#ifdef DEBUGMODE
+        Serial.println("RFM96 init failed");
+#endif
+      }
+      // Defaults after init are 434.0MHz, 0.05MHz AFC pull-in, modulation FSK_Rb2_4Fd36
+      driver.setFrequency(RADIO_FREQUENCY);
+      rtc.disableCountdownTimer();
+      rtc.disableAlarmInterrupt();
+    }
+    listenForTime(&rtc, &manager, &statusflags);
+    if(statusflags.connectet){
+      nextState = Sleep;
+      GMSSend();
+    }
+    if(nextState != statusflags.currentState){
+      digitalWrite(EN_LORA_PIN, LOW); // turn off the LoRa module
+      // genstart countdown timeren med brugerens indstillinger
+      rtc.setCountdownTimer(timerSettings.time,timerSettings.unit,timerSettings.repatMode);
+      rtc.enableCountdownTimer();
+      rtc.enableAlarmInterrupt();
+    }
+    break;
+  default:
+#ifdef DEBUGMODE
+        Serial.println("Default Case");
+#endif
+    break;
+  }
+  lastState = statusflags.currentState; 
+  statusflags.currentState = nextState; 
 }

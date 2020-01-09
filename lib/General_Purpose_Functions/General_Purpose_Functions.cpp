@@ -45,35 +45,29 @@ double measureVCC(bool in_mV)
 void updateSupplyStatus(statusflagsType *p, RV3028 *_rtc)
 {
   analogRead(CAP_MEAS_PIN);                        // do a garbage read to make shure the users chosen reference is set in the ADMUX register
-  p->vSupercap = /*measureUnregulatetVCC()*/ 5300; // done for testing pourposes!
+  p->vSupercap = /*measureUnregulatetVCC() */5300; // done for testing pourposes!
   p->vcc = measureVCC(true);
-  delay(300);
 
   if (VCAP_THRESHHOLD_EXCELLENT <= p->vSupercap)
   {
-    p->statusFlag = SupplyIsExcellent;
+    p->supplyStatusFlag = SupplyIsExcellent;
   }
   else if (VCAP_THRESHHOLD_GOOD <= p->vSupercap)
   {
-    p->statusFlag = SupplyIsGood;
+    p->supplyStatusFlag = SupplyIsGood;
   }
   else if (VCAP_THRESHHOLD_MODERATE <= p->vSupercap)
   {
-    p->statusFlag = SupplyIsModerate;
+    p->supplyStatusFlag = SupplyIsModerate;
   }
   else if (VCAP_THRESHHOLD_BAD <= p->vSupercap)
   {
-    p->statusFlag = SupplyIsBad;
+    p->supplyStatusFlag = SupplyIsBad;
   }
   else if (VCAP_THRESHHOLD_TERRiBLE >= p->vSupercap || VCC_THRESHHOLD >= p->vcc)
   {
-    p->statusFlag = SupplyIsTerrible;
+    p->supplyStatusFlag = SupplyIsTerrible;
   }
-  _rtc->updateTime();
-  p->tsSeconds = _rtc->getSeconds();
-  p->tsMinutes = _rtc->getMinutes();
-  p->tsHours = _rtc->getHours();
-
   return;
 }
 
@@ -93,7 +87,7 @@ uint16_t measureUnregulatetVCC()
   digitalWrite(CAP_MEAS_ON_OFF_PIN, HIGH);
   analogReference(INTERNAL1V1);
   double result = analogRead(CAP_MEAS_PIN); // Do a garbage reading to make the change of reference happen
-  delay(100);                               // wait for reference to settle
+  delay(1);                               // wait for reference to settle
   result = analogRead(CAP_MEAS_PIN);        // useful read
   digitalWrite(CAP_MEAS_ON_OFF_PIN, LOW);
 
@@ -105,7 +99,6 @@ uint16_t measureUnregulatetVCC()
   // set the analog reference to what it was before, this has to be done in case another setting is used
   // somewhere else and because of the way arduino does analog reads.
   analogReference(adcSettings);
-  delay(100); // delay to make the reference settle again, in case an analog read is some of the nect code to be run
   return result;
 }
 
@@ -233,9 +226,6 @@ void listenForTime(RV3028 *_rtc, RHMesh *man, statusflagsType *status)
   {
 #ifdef DEBUGMODE
     Serial.println("Recieved broadcast");
-#endif
-
-#ifdef DEBUGMODE
     Serial.println("recieved time");
     Serial.print(messageBuf[2]);
     Serial.print(":");
@@ -292,6 +282,7 @@ void sendMessage(CayenneLPP *_lpp, uint8_t adr, RHMesh *man, statusflagsType *st
     }
     else
     {
+      status->recievedAck = false; // indicate that the node did not recieve acknowlegement.
 #ifdef DEBUGMODE
       Serial.println("sendtoWait failed. Are the intermediate nodes running?");
 #endif
@@ -300,7 +291,7 @@ void sendMessage(CayenneLPP *_lpp, uint8_t adr, RHMesh *man, statusflagsType *st
 }
 
 // Listen for new messages
-void listenForMessages(RV3028 *_rtc, RHMesh *man, statusflagsType *status)
+void listenForMessages(RHMesh *man, statusflagsType *status)
 {
   uint8_t len = sizeof(messageBuf);
   uint8_t from;
@@ -335,321 +326,6 @@ void listenForMessages(RV3028 *_rtc, RHMesh *man, statusflagsType *status)
 }
 
 bool runOnce = false;
-
-void runOnAlarmInterrupt(CayenneLPP *_lpp, RV3028 *_rtc, RHMesh *man, RH_RF95 *driv, statusflagsType *status, countdownTimerType *timSettings)
-{
-  if (!status->alarmINT)
-    return;
-
-  if (!runOnce)
-  {
-#ifdef DEBUGMODE
-    Serial.println("Starting kommunications window");
-#endif
-    /**** initialize the LoRa module *****************/
-    digitalWrite(EN_LORA_PIN, HIGH); // Enable the module
-    delay(500);                      // let the module turne on
-    if (!man->init())
-    {
-#ifdef DEBUGMODE
-      Serial.println("RFM96 init failed");
-#endif
-    } // Defaults after init are 434.0MHz, 0.05MHz AFC pull-in, modulation FSK_Rb2_4Fd36
-    driv->setFrequency(RADIO_FREQUENCY);
-    //manager.setTxPower(20,false);
-
-    man->clearRoutingTable();                    // clear routing table
-    getRoutingTable(routingTableFirstAddr, man); // get routing table from EEPROM mem
-    // start the countdown timer to set the syncronisation window
-    runOnce = true;
-    _rtc->setCountdownTimer(WINDOW_DURATION, UNIT_SECOND, false);
-    _rtc->enableCountdownTimer();
-    //check to see if this node has a GSM module, this changes how the node behaves
-    if (!status->hasGSM)
-    {
-      uint8_t tries = 0;
-      while (!status->recievedAck && tries < SEND_TRIES)
-      {
-        sendMessage(_lpp, status->gsmNode, man, status); // NEEDS ANOTHER WAY TO DETERMINE end reserver
-        if (status->recievedAck)
-        {
-          man->printRoutingTable();
-          sendRoutingTable(routingTableFirstAddr, man, status->gsmNode);
-
-          break;
-        }
-        else
-        {
-          delay(100); // Wait for a small time
-          tries++;
-        }
-      }
-    }
-  }
-  // Check if this is first time after startup we are transmitting
-  if (status->justRestartet)
-  {
-#ifdef DEBUGMODE
-    Serial.println("First Window after restart");
-#endif
-    /*** check if data is saved in EEPROM
-     * {
-     *    // if it is read it to the transmit buffer
-     *    // delete it from EEPROM
-     * }else{
-     *    // Nothing
-     * }
-     * 
-     * */
-    status->justRestartet = false; // Now we dont need to know
-  }
-  
-  
-    listenForMessages(_rtc, man, status);
-  
-  if (status->windowEnd)
-  {
-#ifdef DEBUGMODE
-    Serial.println("Ending kommunications window");
-#endif
-    if (status->recievedmsg || status->recievedAck)
-    {
-      status->connectet = true;
-      status->recievedmsg = false;
-      status->recievedAck = false;
-    }
-    else
-    {
-      status->connectet = false;
-    }
-    digitalWrite(EN_LORA_PIN, LOW);
-    status->alarmINT = false; // end this process
-    status->windowEnd = false;
-    runOnce = false; // reset runonce
-    saveRoutingTable(routingTableFirstAddr, man);
-    if (status->hasGSM)
-    {
-      if (SupplyIsExcellent == status->statusFlag) // if supply is optimal
-      {
-        dataBuf.buf[dataBuf.curser] = status->ownAdress;
-        dataBuf.curser++;
-        dataBuf.buf[dataBuf.curser] = _lpp->getSize();
-        dataBuf.curser++;
-        uint8_t *lppbuff = _lpp->getBuffer();
-        for (int i = 0; i <= _lpp->getSize(); i++)
-        { // coppy the data from message buffer to the data buffer
-          dataBuf.buf[dataBuf.curser] = messageBuf[i];
-          dataBuf.curser++;
-        }
-        // send data via GSM
-        digitalWrite(23, HIGH);
-        delay(2);
-        digitalWrite(23, LOW);
-        sendGSMData(dataBuf.buf, dataBuf.curser);
-        digitalWrite(21, HIGH);
-        delay(2);
-        digitalWrite(21, LOW);
-#ifdef DEBUGMODE
-        Serial.println("sending data Via GSM");
-        for (uint8_t i = 0; i <= dataBuf.curser; i++)
-        {
-          Serial.print(dataBuf.buf[i]);
-          Serial.print(":");
-        }
-        Serial.println();
-#endif
-        // after sending delete data buffer
-        uint16_t len = dataBuf.curser;
-        for (int i = len - 1; i >= 0; i--)
-        {
-          dataBuf.buf[dataBuf.curser] = 0;
-          dataBuf.curser--;
-        }
-        status->gsmNotSent = false;
-      }
-      else
-      {
-        //save data in EEPROM
-#ifdef DEBUGMODE
-        Serial.println("Save data buffer in EEPROM");
-#endif
-        status->gsmNotSent = true;
-      }
-    }
-    else
-    {
-      //_lpp->addAnalogInput(0, 3.3330);
-      //_lpp->addAnalogInput(1, 2.4);
-    }
-    // enable the timer with the users settings, as we have been repourposing it here
-    //_rtc->enableAlarmInterrupt(3, 12, 1, false, 4);
-    _rtc->setCountdownTimer(timSettings->time, timSettings->unit, timSettings->repatMode);
-    _rtc->enableCountdownTimer();
-  }
-}
-
-void runOnTimerInterrupt(CayenneLPP *_lpp, RV3028 *_rtc, RHMesh *man, RH_RF95 *driv, statusflagsType *status, countdownTimerType *timSetting)
-{
-  if (!status->timerINT)
-    return;
-  //only run once per timer interrupt
-  status->timerINT = false;
-  // see if the timer time is very low, if it is, then do not count them as waking
-  if ((10 <= timSetting->time && UNIT_SECOND == timSetting->unit) || (10000 <= timSetting->time && UNIT_M_SECOND == timSetting->unit))
-  {
-    /****************************************
-     * Check status of VCC and UnregulatetVCC
-     * if it is time for this
-     ***************************************/
-    if (WAKE_TIMES_BEFORE_STATUS_CHECK <= status->timesAwake)
-    {
-
-      updateSupplyStatus(status, _rtc);
-      status->timesAwake = 0;
-#ifdef DEBUGMODE
-      Serial.print("Status updatet: ");
-      Serial.println(status->statusFlag);
-#endif
-    }
-    else
-    {
-      status->timesAwake++;
-    }
-
-    switch (status->statusFlag)
-    {
-    case SupplyIsExcellent:
-
-      digitalWrite(EN_LORA_PIN, HIGH);
-      delay(200); // let the module turne on
-      if (!man->init())
-      {
-#ifdef DEBUGMODE
-        Serial.println("RFM96 init failed");
-#endif
-      }
-
-      // Defaults after init are 434.0MHz, 0.05MHz AFC pull-in, modulation FSK_Rb2_4Fd36
-      driv->setFrequency(RADIO_FREQUENCY);
-      //manager.setTxPower(20,false);
-      if (status->connectet)
-      {
-#ifdef DEBUGMODE
-        Serial.println("broadcasting time");
-#endif
-        broardcastTime(_rtc, man);
-      }
-      else
-      {
-#ifdef DEBUGMODE
-        Serial.println("listening for time");
-#endif
-        _rtc->disableAlarmInterrupt();
-        _rtc->disableCountdownTimer();
-        while (!status->connectet)
-        {
-          listenForTime(_rtc, man, status);
-        }
-        _rtc->enableAlarmInterrupt();
-        _rtc->enableCountdownTimer();
-      }
-      digitalWrite(EN_LORA_PIN, LOW);
-
-      if (status->gsmNotSent && status->hasGSM)
-      {
-#ifdef DEBUGMODE
-        Serial.println("Sending data with GSM");
-        for (uint8_t i = 0; i <= dataBuf.curser; i++)
-        {
-          Serial.print(dataBuf.buf[i]);
-          Serial.print(":");
-        }
-        Serial.println();
-#endif
-        // Read saved data from EEPROM and send using GSM module
-        sendGSMData(dataBuf.buf, dataBuf.curser);
-        status->gsmNotSent = false;
-      }
-      break;
-    case SupplyIsGood:
-      digitalWrite(EN_LORA_PIN, HIGH);
-      delay(200); // let the module turn on
-      if (!man->init())
-      {
-#ifdef DEBUGMODE
-        Serial.println("RFM96 init failed");
-#endif
-      }
-      // Defaults after init are 434.0MHz, 0.05MHz AFC pull-in, modulation FSK_Rb2_4Fd36
-      driv->setFrequency(RADIO_FREQUENCY);
-      //manager.setTxPower(20,false);
-      if (status->connectet)
-      {
-        broardcastTime(_rtc, man);
-#ifdef DEBUGMODE
-        Serial.println("broadcasting time");
-#endif
-      }
-      else
-      {
-#ifdef DEBUGMODE
-        Serial.println("listening for time");
-#endif
-        _rtc->disableAlarmInterrupt();
-        _rtc->disableCountdownTimer();
-        while (!status->connectet)
-        {
-          listenForTime(_rtc, man, status);
-        }
-        _rtc->enableAlarmInterrupt();
-        _rtc->enableCountdownTimer();
-      }
-      digitalWrite(EN_LORA_PIN, LOW);
-      break;
-    case SupplyIsModerate:
-      if (!status->connectet)
-      {
-        digitalWrite(EN_LORA_PIN, HIGH);
-        delay(200); // let the module turne on
-        if (!man->init())
-        {
-#ifdef DEBUGMODE
-          Serial.println("RFM96 init failed");
-#endif
-          // Defaults after init are 434.0MHz, 0.05MHz AFC pull-in, modulation FSK_Rb2_4Fd36
-          driv->setFrequency(RADIO_FREQUENCY);
-          //manager.setTxPower(20,false);
-
-          // Listen for time pings from other nodes
-#ifdef DEBUGMODE
-          Serial.println("listening for time");
-#endif
-          _rtc->disableAlarmInterrupt();
-          _rtc->disableCountdownTimer();
-          while (!status->connectet)
-          {
-            listenForTime(_rtc, man, status);
-          }
-          _rtc->enableAlarmInterrupt();
-          _rtc->enableCountdownTimer();
-          digitalWrite(EN_LORA_PIN, LOW);
-        }
-
-        break;
-      case SupplyIsBad:
-        // maybe either make shure to check status more often to cach when things go bad,
-        // or make shure to wake less often to save on power
-        break;
-      case SupplyIsTerrible:
-        // save unsent data to EEPROM
-        break;
-      default:
-        break;
-      }
-    }
-    return;
-  }
-}
 
 void sendRoutingTable(int row_addr, RHMesh *man, uint8_t adr)
 {
@@ -713,6 +389,7 @@ void sendRoutingTable(int row_addr, RHMesh *man, uint8_t adr)
 #endif
   }
 }
+
 // Function sends
 void sendGSMData(const uint8_t *payload, uint8_t payloadSize)
 {
@@ -771,4 +448,7 @@ void updateSerial(SoftwareSerial mySerial)
   {
     Serial.write(mySerial.read()); //Forward what Software Serial received to Serial Port
   }
+}
+void GMSSend(){
+  sendGSMData(dataBuf.buf, dataBuf.curser);
 }

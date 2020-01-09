@@ -58,11 +58,11 @@
 #define SEND_TRIES 3       // the numpber of times it is atemptet tosendt the message if at first it does not succed
 // The number of times the the processer has to have been woken before
 // checking the status af VCC and Unregulatet VCC
-#define WAKE_TIMES_BEFORE_STATUS_CHECK 5 //Might need a new name
+#define WAKE_TIMES_BEFORE_STATUS_CHECK 2 //Might need a new name
 
 #define SWITCH_GSM 15
 #define _SS_MAX_RX_BUFF 256 // Expand Software Serial buffer to 256 characters. Default is 64.
-enum supplyStatusFlag
+enum supplyStatusFlagEnum
 {
   SupplyIsExcellent,
   SupplyIsGood,
@@ -70,24 +70,27 @@ enum supplyStatusFlag
   SupplyIsBad,
   SupplyIsTerrible,
 };
+enum states
+{
+  Sleep,
+  DataExchange,
+  CollectData,
+  ListenForTime,
+};
 
 struct statusflagsType
 {
   bool connectet;
   bool recievedmsg;
   bool recievedAck;
-  bool gsmNotSent;
-  bool alarmINT, timerINT, windowEnd;
-  bool gotosleep;
-  bool justRestartet;
+  bool alarmINT, timerINT;
   bool hasGSM;
   double vcc;
   double vSupercap;
-  enum supplyStatusFlag statusFlag;
   uint8_t timesAwake;
-  uint8_t tsSeconds, tsMinutes, tsHours;
+  enum supplyStatusFlagEnum supplyStatusFlag;
   uint8_t gsmNode;
-  uint8_t ownAdress;
+  enum states currentState;
 };
 struct bufStruct
 {
@@ -127,11 +130,10 @@ void listenForTime(RV3028 *_rtc, RHMesh *man, statusflagsType *status);
 void broardcastTime(RV3028 *_rtc, RHMesh *man);
 void sendMessage(CayenneLPP *_lpp, uint8_t adr, RHMesh *man, statusflagsType *status);
 
-void listenForMessages(RV3028 *_rtc, RHMesh *man, statusflagsType *status);
-void runOnAlarmInterrupt(CayenneLPP *_lpp, RV3028 *_rtc, RHMesh *man, RH_RF95 *driv, statusflagsType *status, countdownTimerType *timSettings);
-void runOnTimerInterrupt(CayenneLPP *_lpp, RV3028 *_rtc, RHMesh *man, RH_RF95 *driv, statusflagsType *status, countdownTimerType *timSetting);
+void listenForMessages(RHMesh *man, statusflagsType *status);
 // Sends data using SIM800L module
-void sendGSMData(const uint8_t *payload, uint8_t payloadSize);
+void GMSSend();
+
 
 // Forwards received Serial data to Software Serial Port and vice versa.
 // Reference: https://lastminuteengineers.com/sim800l-gsm-module-arduino-tutorial/
