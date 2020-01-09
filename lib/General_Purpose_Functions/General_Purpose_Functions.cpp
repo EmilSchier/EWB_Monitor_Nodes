@@ -343,7 +343,7 @@ void listenForMessages(RV3028 *_rtc, RHMesh *man, statusflagsType *status)
       dataBuf.curser++;
       dataBuf.buf[dataBuf.curser] = len;
       dataBuf.curser++;
-      for (int i = len - 1; i <= len; i++)
+      for (int i = 0; i <= len; i++)
       { // coppy the data from message buffer to the data buffer
         dataBuf.buf[dataBuf.curser] = messageBuf[i];
         dataBuf.curser++;
@@ -454,15 +454,27 @@ void runOnAlarmInterrupt(CayenneLPP *_lpp, RV3028 *_rtc, RHMesh *man, RH_RF95 *d
         dataBuf.buf[dataBuf.curser] = _lpp->getSize();
         dataBuf.curser++;
         uint8_t *lppbuff = _lpp->getBuffer();
-        for (int i = _lpp->getSize() - 1; i <= _lpp->getSize(); i++)
+        for (int i = 0; i <= _lpp->getSize(); i++)
         { // coppy the data from message buffer to the data buffer
           dataBuf.buf[dataBuf.curser] = messageBuf[i];
           dataBuf.curser++;
         }
         // send data via GSM
-        sendGSMData(dataBuf.buf,dataBuf.curser);
+        digitalWrite(23, HIGH);
+        delay(2);
+        digitalWrite(23, LOW);
+        sendGSMData(dataBuf.buf, dataBuf.curser);
+        digitalWrite(21, HIGH);
+        delay(2);
+        digitalWrite(21, LOW);
 #ifdef DEBUGMODE
         Serial.println("sending data Via GSM");
+        for (uint8_t i = 0; i <= dataBuf.curser; i++)
+        {
+          Serial.print(dataBuf.buf[i]);
+          Serial.print(":");
+        }
+        Serial.println();
 #endif
         // after sending delete data buffer
         uint16_t len = dataBuf.curser;
@@ -565,9 +577,15 @@ void runOnTimerInterrupt(CayenneLPP *_lpp, RV3028 *_rtc, RHMesh *man, RH_RF95 *d
       {
 #ifdef DEBUGMODE
         Serial.println("Sending data with GSM");
+        for (uint8_t i = 0; i <= dataBuf.curser; i++)
+        {
+          Serial.print(dataBuf.buf[i]);
+          Serial.print(":");
+        }
+        Serial.println();
 #endif
         // Read saved data from EEPROM and send using GSM module
-        sendGSMData(dataBuf.buf,dataBuf.curser);
+        sendGSMData(dataBuf.buf, dataBuf.curser);
         status->gsmNotSent = false;
       }
       break;
@@ -724,9 +742,9 @@ void sendGSMData(const uint8_t *payload, uint8_t payloadSize)
   delay(7500);                    // Wait for module to be initialised and ready
 
   mySerial.begin(115200);
-  delay(1000);  // It takes time to begin serial
-  
-  //mySerial.println("AT+IPR=115200"); // Save fixed baud on non volatile memory. SIM800L will now give 'RDY' when initialised on start up. Can be used instead of delay. 
+  delay(1000); // It takes time to begin serial
+
+  //mySerial.println("AT+IPR=115200"); // Save fixed baud on non volatile memory. SIM800L will now give 'RDY' when initialised on start up. Can be used instead of delay.
 
   // Text mode:
   mySerial.println("AT+CMGF=1"); // Configuring TEXT mode
@@ -738,10 +756,10 @@ void sendGSMData(const uint8_t *payload, uint8_t payloadSize)
   updateSerial(mySerial);
   for (size_t i = 0; i < payloadSize; i++)
   {
-    _buffer = String(_buffer + *(payload + i));  // Message content to mySerial. 
+    _buffer = String(_buffer + *(payload + i)); // Message content to mySerial.
   }
   mySerial.print(_buffer);
-  updateSerial(mySerial); 
+  updateSerial(mySerial);
 
   // PDU mode (binary mode - not implemented)
   // Reference: https://www.developershome.com/sms/cmgsCommand6.asp
@@ -757,7 +775,6 @@ void sendGSMData(const uint8_t *payload, uint8_t payloadSize)
   mySerial.write(26); // 26 = 'Ctrl+z character (ASCII)' -> send
   delay(100);         // wait for data to be send
   //mySerial.flush(); den kan vi bruge i stedet for delay
-  mySerial.end();
   digitalWrite(SWITCH_GSM, LOW); // Set load switch in OFF state
 }
 
