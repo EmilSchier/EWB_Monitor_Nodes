@@ -10,7 +10,7 @@
 RH_RF95 driver(4, 2); // pins for ATmega1284
 
 // Class to manage message delivery and receipt, using the driver declared above
-RHMesh manager(driver, NODE2_ADDRESS);
+RHMesh manager(driver, NODE3_ADDRESS);
 
 // Cayenne Low Power Protocol
 CayenneLPP lpp(PAYLOADMAXSIZE);
@@ -21,15 +21,14 @@ RV3028 rtc;
 
 // Defines
 // defines the time and date to be set
-#ifdef DEBUGMODE
 #define SECONDS 0
-#define MINUTES 0
-#define HOURS 12
-#define WEEKDAY 0
-#define DATE 1
-#define MONTH 1
+#define MINUTES 15
+#define HOURS 15
+#define WEEKDAY 4
+#define DATE 12
+#define MONTH 12
 #define YEAR 2019
-#endif
+
 
 /*********************************
 Set the alarm mode in the following way:
@@ -43,14 +42,14 @@ Set the alarm mode in the following way:
 7: All disabled � Default value
 If you want to set a weekday alarm (ALARM_NOT_DATES = true), set 'ALARM_DATE' from 0 (Sunday) to 6 (Saturday)
 ********************************/
-#define ALARM_MINUTES 2
+#define ALARM_MINUTES 0
 #define ALARM_HOURS 12
 #define ALARM_WEEKDAY 0
 #define ALARM_DATE 1
 #define ALARM_NOT_DATES false
-#define ALARM_MODE 4 //disabled
+#define ALARM_MODE 4 // 7 disabled
 
-#define TIMER_TIME 15 // the time, 0 = dissabled
+#define TIMER_TIME 60 // the time, 0 = dissabled
 #define TIMER_UNIT UNIT_SECOND
 /*****************
  Determines the unit used for the countdown time
@@ -83,9 +82,9 @@ void setup()
 
   // setup RTC
   rtc.begin();
-#ifdef DEBUGMODE
-rtc.setTime(SECONDS,MINUTES,HOURS,WEEKDAY,DATE,MONTH,YEAR);
-#endif
+
+  rtc.setTime(SECONDS,MINUTES,HOURS,WEEKDAY,DATE,MONTH,YEAR);
+
 
   rtc.enableAlarmInterrupt(ALARM_MINUTES, ALARM_HOURS, ALARM_HOURS, ALARM_NOT_DATES, ALARM_MODE);
   rtc.setCountdownTimer(timerSettings.time, timerSettings.unit, timerSettings.repatMode);
@@ -95,13 +94,13 @@ rtc.setTime(SECONDS,MINUTES,HOURS,WEEKDAY,DATE,MONTH,YEAR);
   attachInterrupt(digitalPinToInterrupt(RTC_INTERRUPT_PIN), rtcISR, FALLING);
 
   lpp.reset();
-  lpp.addAnalogInput(0,100.0);
-  lpp.addAnalogInput(1,1.5);
+  //lpp.addAnalogInput(0,100.0);
+  //lpp.addAnalogInput(1,1.5);
   updateSupplyStatus(&statusflags, &rtc);
   statusflags.justRestartet = true; // Indikate that we just restartet
   statusflags.gsmNode = NODE1_ADDRESS; // The node to send data to
-  statusflags.hasGSM = true; // Does this node have GSM module?
-  statusflags.ownAdress = NODE2_ADDRESS;
+  statusflags.hasGSM = false; // Does this node have GSM module?
+  statusflags.ownAdress = NODE3_ADDRESS;
   //statusflags.connectet = true; // testing
   
 }
@@ -166,6 +165,8 @@ void rtcIntHandler()
      * Tasks where timing is important
      * For example making a measurement at a specific time ore with a specific time differance
      ***************************************/
+     //float V_cap = (float)measureUnregulatetVCC()/1000.0;
+     //lpp.addAnalogInput(0,V_cap);
     }
   }
   if ((flags & _BV(STATUS_AF))) // Alarm interrupt
@@ -175,8 +176,7 @@ void rtcIntHandler()
 #endif
     // code to do if this flag is high
     if (!statusflags.alarmINT)
-      ;
-    statusflags.alarmINT = true; // Indicade that this interrupt has happened
+      statusflags.alarmINT = true; // Indicade that this interrupt has happened
   }
   
   /*    if ((flags & _BV(STATUS_UF)))
