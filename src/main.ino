@@ -42,15 +42,15 @@ Set the alarm mode in the following way:
 7: All disabled � Default value
 If you want to set a weekday alarm (ALARM_NOT_DATES = true), set 'ALARM_DATE' from 0 (Sunday) to 6 (Saturday)
 ********************************/
-#define ALARM_MINUTES 0
+#define ALARM_MINUTES 30
 #define ALARM_HOURS 12
 #define ALARM_WEEKDAY 0
 #define ALARM_DATE 1
 #define ALARM_NOT_DATES false
-#define ALARM_MODE 4 // 7 disabled
+#define ALARM_MODE 6 // 7 disabled
 
-#define TIMER_TIME 60 // the time, 0 = dissabled
-#define TIMER_UNIT UNIT_SECOND
+#define TIMER_TIME 25 // the time, 0 = dissabled
+#define TIMER_UNIT UNIT_MINUTE
 /*****************
  Determines the unit used for the countdown time
  UNIT_MINUTE    =   Minutes
@@ -60,7 +60,8 @@ If you want to set a weekday alarm (ALARM_NOT_DATES = true), set 'ALARM_DATE' fr
 #define TIMER_REPEAT true // Repeat mode true or false
 
 countdownTimerType timerSettings = {TIMER_TIME, TIMER_UNIT, TIMER_REPEAT};
-
+enum states nextState;
+enum states lastState;
 volatile bool rtcINT = false;
 statusflagsType statusflags;
 //RTC interrupt service routine
@@ -93,7 +94,13 @@ void setup()
   attachInterrupt(digitalPinToInterrupt(RTC_INTERRUPT_PIN), rtcISR, FALLING);
 
   lpp.reset();
-  
+  statusflags.connectet = false;
+  statusflags.currentState = CollectData;
+  lastState = Sleep;
+  nextState = CollectData;
+  statusflags.gsmNode = 1;
+  statusflags.hasGSM = true;
+  statusflags.supplyStatusFlag = SupplyIsExcellent;
 }
 
 void loop()
@@ -162,8 +169,7 @@ void rtcIntHandler()
         // code to do if this flag is high
       }  */
 }
-enum states nextState;
-enum states lastState;
+
 void stateMashine()
 {
   
@@ -186,10 +192,11 @@ void stateMashine()
 #ifdef DEBUGMODE
       Serial.println("Entered mode: CollectData");
 #endif
-      statusflags.timesAwake ++; 
+      statusflags.timesAwake ++;
+      
     }
     // collect data from sensors
-
+    //lpp.addAnalogInput(1,(float) measureVCC(false));
 
     if(WAKE_TIMES_BEFORE_STATUS_CHECK == statusflags.timesAwake){
       updateSupplyStatus(&statusflags,&rtc);
@@ -200,7 +207,7 @@ void stateMashine()
     {
     case SupplyIsExcellent:
       digitalWrite(EN_LORA_PIN, HIGH); // turn on the LoRa module
-      delay(100); // ved ikke hvor stort et delay der skal være
+      delay(3); // ved ikke hvor stort et delay der skal være
       if(!manager.init()){
 #ifdef DEBUGMODE
         Serial.println("RFM96 init failed");
@@ -208,12 +215,13 @@ void stateMashine()
       }
       // Defaults after init are 434.0MHz, 0.05MHz AFC pull-in, modulation FSK_Rb2_4Fd36
       driver.setFrequency(RADIO_FREQUENCY);
+      driver.setTxPower(10);
       broardcastTime(&rtc,&manager);
       digitalWrite(EN_LORA_PIN,LOW);
       break;
     case SupplyIsGood:
       digitalWrite(EN_LORA_PIN, HIGH); // turn on the LoRa module
-      delay(100); // ved ikke hvor stort et delay der skal være
+      delay(3); // ved ikke hvor stort et delay der skal være
       if(!manager.init()){
 #ifdef DEBUGMODE
         Serial.println("RFM96 init failed");
@@ -221,6 +229,7 @@ void stateMashine()
       }
       // Defaults after init are 434.0MHz, 0.05MHz AFC pull-in, modulation FSK_Rb2_4Fd36
       driver.setFrequency(RADIO_FREQUENCY);
+      driver.setTxPower(10);
       broardcastTime(&rtc,&manager);
       digitalWrite(EN_LORA_PIN,LOW);
       break;
@@ -248,7 +257,7 @@ void stateMashine()
       Serial.println("Entered mode: DataExchange");
 #endif
       digitalWrite(EN_LORA_PIN, HIGH); // turn on the LoRa module
-      delay(100); // ved ikke hvor stort et delay der skal være
+      delay(3); // ved ikke hvor stort et delay der skal være
       if(!manager.init()){
 #ifdef DEBUGMODE
         Serial.println("RFM96 init failed");
@@ -256,6 +265,7 @@ void stateMashine()
       }
       // Defaults after init are 434.0MHz, 0.05MHz AFC pull-in, modulation FSK_Rb2_4Fd36
       driver.setFrequency(RADIO_FREQUENCY);
+      driver.setTxPower(10);
 #ifdef DEBUGMODE
         Serial.println("Com. window start");
 #endif
@@ -299,7 +309,7 @@ void stateMashine()
       Serial.println("Entered mode: ListenForTime");
 #endif
       digitalWrite(EN_LORA_PIN, HIGH); // turn on the LoRa module
-      delay(100); // ved ikke hvor stort et delay der skal være
+      delay(3); // ved ikke hvor stort et delay der skal være
       if(!manager.init()){
 #ifdef DEBUGMODE
         Serial.println("RFM96 init failed");
@@ -307,6 +317,7 @@ void stateMashine()
       }
       // Defaults after init are 434.0MHz, 0.05MHz AFC pull-in, modulation FSK_Rb2_4Fd36
       driver.setFrequency(RADIO_FREQUENCY);
+      driver.setTxPower(10);
       rtc.disableCountdownTimer();
       rtc.disableAlarmInterrupt();
     }
