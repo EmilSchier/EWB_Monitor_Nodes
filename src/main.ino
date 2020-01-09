@@ -206,7 +206,10 @@ void stateMashine()
         Serial.println("RFM96 init failed");
 #endif
       }
+      // Defaults after init are 434.0MHz, 0.05MHz AFC pull-in, modulation FSK_Rb2_4Fd36
+      driver.setFrequency(RADIO_FREQUENCY);
       broardcastTime(&rtc,&manager);
+      digitalWrite(EN_LORA_PIN,LOW);
       break;
     case SupplyIsGood:
       digitalWrite(EN_LORA_PIN, HIGH); // turn on the LoRa module
@@ -216,7 +219,10 @@ void stateMashine()
         Serial.println("RFM96 init failed");
 #endif
       }
+      // Defaults after init are 434.0MHz, 0.05MHz AFC pull-in, modulation FSK_Rb2_4Fd36
+      driver.setFrequency(RADIO_FREQUENCY);
       broardcastTime(&rtc,&manager);
+      digitalWrite(EN_LORA_PIN,LOW);
       break;
     case SupplyIsModerate:
       /* code */
@@ -233,7 +239,7 @@ void stateMashine()
 
     nextState = Sleep;
     if(nextState != statusflags.currentState){
-      digitalWrite(EN_LORA_PIN,LOW);
+
     }
     break;
   case DataExchange:
@@ -260,7 +266,7 @@ void stateMashine()
     {
       listenForMessages(&manager,&statusflags);
     }else{
-      sendMessage(&lpp, statusflags.gsmNode, &manager, &statusflags);
+      sendMessage(&lpp, statusflags.gsmNode, &manager, &statusflags); // only sends a message if the LPP buffer is not empty, When message is sent the LPP buffer is reset
       listenForMessages(&manager, &statusflags);
     }
     rtcIntHandler();
@@ -272,6 +278,9 @@ void stateMashine()
       if(statusflags.recievedAck || statusflags.recievedmsg){
         statusflags.connectet = true;
         nextState = Sleep;
+        if(statusflags.hasGSM){
+          GMSSend();
+        }
       } else {
         nextState = ListenForTime;
         statusflags.connectet = false;
@@ -279,7 +288,7 @@ void stateMashine()
     }
     if(nextState != statusflags.currentState){
       digitalWrite(EN_LORA_PIN, LOW); // turn off the LoRa module
-      // genstart countdown timeren med brugerens indstillinger
+      // genstart countdown timeren med periodevis timer interrupt
       rtc.setCountdownTimer(timerSettings.time,timerSettings.unit,timerSettings.repatMode);
       rtc.enableCountdownTimer();
     }
@@ -304,7 +313,6 @@ void stateMashine()
     listenForTime(&rtc, &manager, &statusflags);
     if(statusflags.connectet){
       nextState = Sleep;
-      GMSSend();
     }
     if(nextState != statusflags.currentState){
       digitalWrite(EN_LORA_PIN, LOW); // turn off the LoRa module
