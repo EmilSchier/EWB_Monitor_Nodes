@@ -277,6 +277,9 @@ void sendMessage(CayenneLPP *_lpp, uint8_t adr, RHMesh *man, statusflagsType *st
     // A route to the destination will be automatically discovered.
     if (man->sendtoWait(_lpp->getBuffer(), _lpp->getSize(), adr) == RH_ROUTER_ERROR_NONE)
     {
+#ifdef DEBUGMODE
+      Serial.println("Succes!");
+#endif
       status->recievedAck = true; // indicate that the node connectet to the network
       _lpp->reset();
     }

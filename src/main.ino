@@ -49,8 +49,8 @@ If you want to set a weekday alarm (ALARM_NOT_DATES = true), set 'ALARM_DATE' fr
 #define ALARM_NOT_DATES false
 #define ALARM_MODE 6 // 7 disabled
 
-#define TIMER_TIME 25 // the time, 0 = dissabled
-#define TIMER_UNIT UNIT_MINUTE
+#define TIMER_TIME 1500 // the time, 0 = dissabled
+#define TIMER_UNIT UNIT_SECOND
 /*****************
  Determines the unit used for the countdown time
  UNIT_MINUTE    =   Minutes
@@ -94,7 +94,7 @@ void setup()
   attachInterrupt(digitalPinToInterrupt(RTC_INTERRUPT_PIN), rtcISR, FALLING);
 
   lpp.reset();
-  statusflags.connectet = false;
+  statusflags.connectet = true;
   statusflags.currentState = CollectData;
   lastState = Sleep;
   nextState = CollectData;
@@ -269,7 +269,8 @@ void stateMashine()
 #ifdef DEBUGMODE
         Serial.println("Com. window start");
 #endif
-      rtc.setCountdownTimer(WINDOW_DURATION,UNIT_SECOND,false);
+      rtc.disableCountdownTimer();
+      rtc.setCountdownTimer(WINDOW_DURATION,UNIT_SECOND,true);
       rtc.enableCountdownTimer();
     }
     if(statusflags.hasGSM)
@@ -279,6 +280,9 @@ void stateMashine()
       sendMessage(&lpp, statusflags.gsmNode, &manager, &statusflags); // only sends a message if the LPP buffer is not empty, When message is sent the LPP buffer is reset
       listenForMessages(&manager, &statusflags);
     }
+#ifdef DEBUGMODE
+      Serial.println("I'm just before the interrupthandler");
+#endif
     rtcIntHandler();
     if(statusflags.timerINT){
       statusflags.timerINT = false;
