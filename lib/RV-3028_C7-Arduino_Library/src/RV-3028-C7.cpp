@@ -585,6 +585,7 @@ bool RV3028::setCountdownTimer(uint16_t time, time_units unit, bool repeatmode)
 	{	
 		value &= ~ (1 << CTRL1_TRPT); //clear the repeat mode bit
 	}
+  value &=0b11111100;
 	value |=clockFreq;
 	
 	if (!writeRegister(RV3028_CTRL1, value) )

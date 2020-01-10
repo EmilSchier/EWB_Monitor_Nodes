@@ -47,9 +47,9 @@ If you want to set a weekday alarm (ALARM_NOT_DATES = true), set 'ALARM_DATE' fr
 #define ALARM_WEEKDAY 0
 #define ALARM_DATE 1
 #define ALARM_NOT_DATES false
-#define ALARM_MODE 6 // 7 disabled
+#define ALARM_MODE 7 // 7 disabled
 
-#define TIMER_TIME 1500 // the time, 0 = dissabled
+#define TIMER_TIME 60 // the time, 0 = dissabled
 #define TIMER_UNIT UNIT_SECOND
 /*****************
  Determines the unit used for the countdown time
@@ -82,7 +82,6 @@ void setup()
 
   // setup RTC
   rtc.begin();
-
   rtc.setTime(SECONDS,MINUTES,HOURS,WEEKDAY,DATE,MONTH,YEAR);
 
 
@@ -102,7 +101,6 @@ void setup()
   statusflags.hasGSM = true;
   statusflags.supplyStatusFlag = SupplyIsExcellent;
 }
-
 void loop()
 {
 stateMashine();
